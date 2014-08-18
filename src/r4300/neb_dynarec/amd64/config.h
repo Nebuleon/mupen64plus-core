@@ -1,7 +1,7 @@
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
- *   Mupen64plus - r4300.h                                                 *
+ *   Mupen64plus - Neb Dynarec - AMD64 (little-endian) configuration       *
  *   Mupen64Plus homepage: http://code.google.com/p/mupen64plus/           *
- *   Copyright (C) 2002 Hacktarux                                          *
+ *   Copyright (C) 2013 Nebuleon                                           *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -19,38 +19,18 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.          *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-#ifndef M64P_R4300_R4300_H
-#define M64P_R4300_R4300_H
+#ifndef __NEB_DYNAREC_AMD64_CONFIG_H__
+#define __NEB_DYNAREC_AMD64_CONFIG_H__
 
-#include "ops.h"
-#include "recomp.h"
+/* Mandatory. The size, in bytes, of the cache used to hold recompiled code on
+ * this platform. */
+#define CODE_CACHE_SIZE (1 << 25) /* 32 MiB */
 
-extern precomp_instr *PC;
+/* For the rest, refer to driver.h. */
 
-extern int stop, llbit, rompause;
-extern long long int reg[32], hi, lo;
-extern long long int local_rs;
-extern unsigned int delay_slot, skip_jump, dyna_interp;
-extern unsigned int r4300emu;
-extern unsigned int next_interupt, CIC_Chip;
-extern unsigned int last_addr;
-#define COUNT_PER_OP_DEFAULT 2
-extern unsigned int count_per_op;
-extern cpu_instruction_table current_instruction_table;
+/* - - - ARCHITECTURE SETTINGS - - - */
 
-void r4300_reset_hard(void);
-void r4300_reset_soft(void);
-void r4300_execute(void);
+// #define ARCH_NEED_INIT
+// #define ARCH_NEED_EXIT
 
-/* Jump to the given address. This works for all r4300 emulator, but is slower.
- * Use this for common code which can be executed from any r4300 emulator. */ 
-void generic_jump_to(unsigned int address);
-
-// r4300 emulators
-#define CORE_PURE_INTERPRETER 0
-#define CORE_INTERPRETER      1
-#define CORE_DYNAREC          2
-#define CORE_NEB_DYNAREC      3
-
-#endif /* M64P_R4300_R4300_H */
-
+#endif /* !__NEB_DYNAREC_AMD64_CONFIG_H__ */

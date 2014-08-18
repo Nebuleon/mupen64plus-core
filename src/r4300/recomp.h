@@ -23,10 +23,15 @@
 #define M64P_R4300_RECOMP_H
 
 #include <stddef.h>
-#if defined(__x86_64__)
-  #include "x86_64/assemble_struct.h"
+
+#ifdef NEB_DYNAREC
+typedef struct { unsigned char need_map; } reg_cache_struct;
 #else
-  #include "x86/assemble_struct.h"
+#  if defined(__x86_64__)
+#    include "x86_64/assemble_struct.h"
+#  else
+#    include "x86/assemble_struct.h"
+#  endif
 #endif
 
 typedef struct _precomp_instr
@@ -100,12 +105,14 @@ extern precomp_instr *dst; /* precomp_instr structure for instruction being reco
 
 extern int no_compiled_jump;
 
-#if defined(__x86_64__)
-  #include "x86_64/assemble.h"
-  #include "x86_64/regcache.h"
-#else
-  #include "x86/assemble.h"
-  #include "x86/regcache.h"
+#ifndef NEB_DYNAREC
+#  if defined(__x86_64__)
+#    include "x86_64/assemble.h"
+#    include "x86_64/regcache.h"
+#  else
+#    include "x86/assemble.h"
+#    include "x86/regcache.h"
+#  endif
 #endif
 
 #endif /* M64P_R4300_RECOMP_H */

@@ -40,6 +40,9 @@
 #include "recomph.h"
 #include "tlb.h"
 #include "new_dynarec/new_dynarec.h"
+#ifdef NEB_DYNAREC
+#  include "neb_dynarec/driver.h"
+#endif
 
 #ifdef DBG
 #include "debugger/dbg_types.h"
@@ -297,7 +300,7 @@ void r4300_reset_soft(void)
 
 }
 
-#if !defined(NO_ASM)
+#if !defined(NO_ASM) && defined(DYNAREC) && !defined(NEB_DYNAREC)
 static void dynarec_setup_code(void)
 {
    // The dynarec jumps here after we call dyna_start and it prepares
@@ -340,6 +343,30 @@ void r4300_execute(void)
 #if defined(DYNAREC)
     else if (r4300emu >= 2)
     {
+#ifdef NEB_DYNAREC
+        DebugMessage(M64MSG_INFO, "Starting R4300 emulator: Nebuleon's hybrid recompiler-interpreter");
+        r4300emu = CORE_NEB_DYNAREC;
+        current_instruction_table = neb_fallback_table;
+        init_blocks();
+        nd_init();
+        jump_to(0xa4000040);
+
+        /* Prevent segfault on failed jump_to */
+        if (!actual->block)
+            return;
+
+        last_addr = PC->addr;
+        while (!stop)
+        {
+#  ifdef DBG
+            if (g_DebuggerActive) update_debugger(PC->addr);
+#  endif
+            PC->ops();
+        }
+
+        nd_exit();
+        free_blocks();
+#else /* !NEB_DYNAREC */
         DebugMessage(M64MSG_INFO, "Starting R4300 emulator: Dynamic Recompiler");
         r4300emu = CORE_DYNAREC;
         init_blocks();
@@ -368,8 +395,9 @@ void r4300_execute(void)
             }
         fclose(pfProfile);
         pfProfile = NULL;
-#endif
+#endif /* PROFILE_R4300 */
         free_blocks();
+#endif /* NEB_DYNAREC vs. !NEB_DYNAREC */
     }
 #endif
     else /* if (r4300emu == CORE_INTERPRETER) */
