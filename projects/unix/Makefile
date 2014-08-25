@@ -461,8 +461,10 @@ ifneq ($(DYNAREC), )
   ifeq ($(NEB_DYNAREC), 1)
     SOURCE += \
       $(SRCDIR)/r4300/empty_dynarec.c \
+      $(SRCDIR)/r4300/neb_dynarec/arch-ops.c \
       $(SRCDIR)/r4300/neb_dynarec/driver.c \
       $(SRCDIR)/r4300/neb_dynarec/emitflags.c \
+      $(SRCDIR)/r4300/neb_dynarec/il-ops.c \
       $(SRCDIR)/r4300/neb_dynarec/n64ops.c \
     # Refer to neb_dynarec/driver.h for the values of the architecture constants.
     ifeq ($(DYNAREC), mips)
