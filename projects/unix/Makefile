@@ -66,6 +66,7 @@ ifneq ("$(filter x86_64 amd64,$(HOST_CPU))","")
   else
     ARCH_DETECTED := 64BITS
     PIC ?= 1
+    LLVM_JIT ?= 1
   endif
 endif
 ifneq ("$(filter pentium i%86,$(HOST_CPU))","")
@@ -107,7 +108,7 @@ ifneq ("$(filter mips,$(HOST_CPU))","")
   CPU := MIPS
   ARCH_DETECTED := 32BITS
   PIC ?= 1
-  NO_ASM := 1
+  LLVM_JIT ?= 1
   $(warning Architecture "$(HOST_CPU)" not officially supported.')
 endif
 ifeq ("$(CPU)","NONE")
@@ -293,6 +294,26 @@ ifeq ($(OSD), 1)
   LDLIBS += $(GLU_LDLIBS)
 endif
 
+# LLVM flags and libraries, if used
+ifeq ($(LLVM_JIT), 1)
+  ifeq ($(origin LLVM_CFLAGS) $(origin LLVM_LDLIBS), undefined undefined)
+    ifeq ($(origin LLVM_CONFIG), undefined)
+      LLVM_CONFIG = $(CROSS_COMPILE)llvm-config
+      ifeq ($(shell which $(LLVM_CONFIG) 2>/dev/null),)
+        $(error No LLVM development libraries found!)
+      endif
+    endif
+    LLVM_CFLAGS += $(shell $(LLVM_CONFIG) --cflags)
+    LLVM_CXXFLAGS += $(shell $(LLVM_CONFIG) --cxxflags)
+    LLVM_LDLIBS += $(shell $(LLVM_CONFIG) --libs)
+    LLVM_LDFLAGS += $(shell $(LLVM_CONFIG) --ldflags)
+  endif
+  CFLAGS += $(LLVM_CFLAGS)
+  CXXFLAGS += $(LLVM_CXXFLAGS)
+  LDLIBS += $(LLVM_LDLIBS)
+  LDFLAGS += $(LLVM_LDFLAGS)
+endif
+
 # set base program pointers and flags
 CC        = $(CROSS_COMPILE)gcc
 CXX       = $(CROSS_COMPILE)g++
@@ -355,6 +376,9 @@ ifeq ($(DBG_TIMING), 1)
 endif
 ifeq ($(DBG_PROFILE), 1)
   CFLAGS += -DPROFILE_R4300
+endif
+ifeq ($(LLVM_JIT), 1)
+  CFLAGS += -DLLVM_JIT
 endif
 # 4. compile-time directory paths for building into the library
 ifneq ($(SHAREDIR),)
@@ -448,41 +472,54 @@ ifneq ($(NO_ASM), 1)
       DYNAREC = arm
     endif
   endif
+  ifeq ($(CPU), MIPS)
+    ifeq ($(ARCH_DETECTED), 32BITS)
+      DYNAREC = mips
+    endif
+  endif
 endif
 ifneq ($(DYNAREC), )
   CFLAGS += -DDYNAREC
 
-  ifeq ($(NEW_DYNAREC), 1)
-    ifeq ($(DYNAREC), x86)
-      CFLAGS += -DNEW_DYNAREC=1
-    else
-      ifeq ($(DYNAREC), arm)
-        CFLAGS += -DNEW_DYNAREC=3
-      else
-        $(error NEW_DYNAREC is only supported on 32 bit x86 and 32 bit armel)
-      endif
-    endif
-
+  ifeq ($(LLVM_JIT), 1)
     SOURCE += \
       $(SRCDIR)/r4300/empty_dynarec.c \
-      $(SRCDIR)/r4300/new_dynarec/linkage_$(DYNAREC).S \
-      $(SRCDIR)/r4300/new_dynarec/new_dynarec.c
+      $(SRCDIR)/r4300/llvm_jit/driver.c \
+      $(SRCDIR)/r4300/llvm_jit/emitflags.c \
+      $(SRCDIR)/r4300/llvm_jit/n64ops.c
   else
-    SOURCE += \
-      $(SRCDIR)/r4300/$(DYNAREC)/assemble.c \
-      $(SRCDIR)/r4300/$(DYNAREC)/gbc.c \
-      $(SRCDIR)/r4300/$(DYNAREC)/gcop0.c \
-      $(SRCDIR)/r4300/$(DYNAREC)/gcop1.c \
-      $(SRCDIR)/r4300/$(DYNAREC)/gcop1_d.c \
-      $(SRCDIR)/r4300/$(DYNAREC)/gcop1_l.c \
-      $(SRCDIR)/r4300/$(DYNAREC)/gcop1_s.c \
-      $(SRCDIR)/r4300/$(DYNAREC)/gcop1_w.c \
-      $(SRCDIR)/r4300/$(DYNAREC)/gr4300.c \
-      $(SRCDIR)/r4300/$(DYNAREC)/gregimm.c \
-      $(SRCDIR)/r4300/$(DYNAREC)/gspecial.c \
-      $(SRCDIR)/r4300/$(DYNAREC)/gtlb.c \
-      $(SRCDIR)/r4300/$(DYNAREC)/regcache.c \
-      $(SRCDIR)/r4300/$(DYNAREC)/rjump.c
+    ifeq ($(NEW_DYNAREC), 1)
+      ifeq ($(DYNAREC), x86)
+        CFLAGS += -DNEW_DYNAREC=1
+      else
+        ifeq ($(DYNAREC), arm)
+          CFLAGS += -DNEW_DYNAREC=3
+        else
+          $(error NEW_DYNAREC is only supported on 32 bit x86 and 32 bit armel)
+        endif
+      endif
+
+      SOURCE += \
+        $(SRCDIR)/r4300/empty_dynarec.c \
+        $(SRCDIR)/r4300/new_dynarec/linkage_$(DYNAREC).S \
+        $(SRCDIR)/r4300/new_dynarec/new_dynarec.c
+    else
+      SOURCE += \
+        $(SRCDIR)/r4300/$(DYNAREC)/assemble.c \
+        $(SRCDIR)/r4300/$(DYNAREC)/gbc.c \
+        $(SRCDIR)/r4300/$(DYNAREC)/gcop0.c \
+        $(SRCDIR)/r4300/$(DYNAREC)/gcop1.c \
+        $(SRCDIR)/r4300/$(DYNAREC)/gcop1_d.c \
+        $(SRCDIR)/r4300/$(DYNAREC)/gcop1_l.c \
+        $(SRCDIR)/r4300/$(DYNAREC)/gcop1_s.c \
+        $(SRCDIR)/r4300/$(DYNAREC)/gcop1_w.c \
+        $(SRCDIR)/r4300/$(DYNAREC)/gr4300.c \
+        $(SRCDIR)/r4300/$(DYNAREC)/gregimm.c \
+        $(SRCDIR)/r4300/$(DYNAREC)/gspecial.c \
+        $(SRCDIR)/r4300/$(DYNAREC)/gtlb.c \
+        $(SRCDIR)/r4300/$(DYNAREC)/regcache.c \
+        $(SRCDIR)/r4300/$(DYNAREC)/rjump.c
+    endif
   endif
 else
   SOURCE += $(SRCDIR)/r4300/empty_dynarec.c
@@ -541,6 +578,7 @@ targets:
 	@echo "    PIC=(1|0)     == Force enable/disable of position independent code"
 	@echo "    OSD=(1|0)     == Enable/disable build of OpenGL On-screen display"
 	@echo "    NEW_DYNAREC=1 == Replace dynamic recompiler with Ari64's experimental dynarec"
+	@echo "    LLVM_JIT=1    == Replace dynamic recompiler with a LLVM-based JIT/interpreter"
 	@echo "    POSTFIX=name  == String added to the name of the the build (default: '')"
 	@echo "  Install Options:"
 	@echo "    PREFIX=path   == install/uninstall prefix (default: /usr/local/)"

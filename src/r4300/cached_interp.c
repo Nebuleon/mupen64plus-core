@@ -41,6 +41,10 @@
 #include "debugger/debugger.h"
 #endif
 
+#ifdef LLVM_JIT
+#  include "llvm_jit/driver.h"
+#endif
+
 /* global variables */
 char invalid_code[0x100000];
 precomp_block *blocks[0x100000];
@@ -550,7 +554,12 @@ void jump_to_func(void)
       }
     blocks[addr>>12]->start = addr & ~0xFFF;
     blocks[addr>>12]->end = (addr & ~0xFFF) + 0x1000;
-    init_block(blocks[addr>>12]);
+#ifdef LLVM_JIT
+    if (r4300emu == CORE_LLVM_JIT)
+      lj_init_page(blocks[addr>>12]);
+    else
+#endif
+      init_block(blocks[addr>>12]);
      }
    PC=actual->block+((addr-actual->start)>>2);
    
@@ -575,7 +584,12 @@ void free_blocks(void)
    {
         if (blocks[i])
         {
-            free_block(blocks[i]);
+#ifdef LLVM_JIT
+            if (r4300emu == CORE_LLVM_JIT)
+                lj_free_page(blocks[i]);
+            else
+#endif
+                free_block(blocks[i]);
             free(blocks[i]);
             blocks[i] = NULL;
         }

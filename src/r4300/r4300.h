@@ -50,6 +50,7 @@ void generic_jump_to(unsigned int address);
 #define CORE_PURE_INTERPRETER 0
 #define CORE_INTERPRETER      1
 #define CORE_DYNAREC          2
+#define CORE_LLVM_JIT         3
 
 #endif /* M64P_R4300_R4300_H */
 
