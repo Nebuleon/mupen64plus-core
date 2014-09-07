@@ -266,7 +266,7 @@ bool llvm_ir_for_insn(llvm::IRBuilder<>& builder, value_store& values, const n64
 
 		default:
 			assert(false && "Opcode without an implementation requested in llvm_ir_for_insn");
-			break;
+			return false;
 	}
 	return true;
 }
