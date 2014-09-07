@@ -29,7 +29,7 @@
 /* This file contains prototypes for the LLVM JIT functions accessible to both
  * C++ (which needs to be made aware that its name-mangling is not wanted) and
  * C (which is running the show, but cannot call C++ LLVM functions).
- * The implementations of these prototypes is in llvm_*.cpp. */
+ * The implementations of these prototypes are in llvm_*.cpp. */
 
 #ifdef __cplusplus
 extern "C" {
@@ -79,6 +79,8 @@ void* llvm_function_create(uint32_t addr);
  *     n64ops.c) to use as opcodes.
  *   n64_insn_count: Number of valid N64 instruction structures after
  *    'n64_insns'.
+ * Returns:
+ *   true if compilation succeeded; false if there was a problem.
  * Input assertions:
  *   a) fn_ptr != NULL.
  *   b) fn_ptr was returned by an earlier call to 'llvm_function_create' and
