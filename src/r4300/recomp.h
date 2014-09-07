@@ -37,6 +37,12 @@ typedef struct { unsigned char need_map; } reg_cache_struct;
 typedef struct _precomp_instr
 {
    void (*ops)(void);
+#ifdef LLVM_JIT
+   /* Keeps track of the LLVM function that created the 'ops' above, if 'ops'
+    * came from LLVM. The type should be 'llvm::Function *', but that cannot
+    * be represented in C. */
+   void *llvm_fn;
+#endif /* LLVM_JIT */
    union
      {
     struct

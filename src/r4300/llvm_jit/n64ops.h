@@ -84,6 +84,10 @@
 // Guaranteed to be larger than any N64_OP_* value. Usable as an array bound.
 #define N64_OP_MAX                       MAKE_OP_TYPE(24)
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // These constants are used in the instruction analysis structure.
 // They tell the dynamic recompiler which opcode is used for an instruction,
 // as well as which fields are valid in each instruction analysis structure.
@@ -467,5 +471,9 @@ extern void post_parse_n64_insns(n64_insn_t* insns, const uint32_t insn_count, c
  *   The return string must not be freed.
  */
 extern const char* get_n64_op_name(const n64_opcode_t opcode);
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif
 
 #endif /* !__LLVM_JIT_N64OPS_H__ */

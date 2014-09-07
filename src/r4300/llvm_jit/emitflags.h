@@ -57,6 +57,14 @@
  */
 #define INSTRUCTION_NEEDS_COP1_CHECK       0x0004
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void fill_emit_flags(n64_insn_t* insn);
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif
 
 #endif /* !__LLVM_JIT_EMITFLAGS_H__ */

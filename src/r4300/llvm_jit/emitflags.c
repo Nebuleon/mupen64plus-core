@@ -36,21 +36,48 @@ void fill_emit_flags(n64_insn_t* insn)
 	switch (insn->opcode)
 	{
 		case N64_OP_NOP:
-			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT;
-			/* Needs no further emitters */
+			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT
+				| INSTRUCTION_HAS_EMITTERS;
 			break;
 		case N64_OP_RESERVED:
 		case N64_OP_UNIMPLEMENTED:
 			break;
 		case N64_OP_SLL:
+			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT
+				| INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_SRL:
+			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT
+				| INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_SRA:
+			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT
+				| INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_DSLL:
+			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT
+				| INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_DSRL:
+			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT
+				| INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_DSRA:
+			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT
+				| INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_DSLL32:
+			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT
+				| INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_DSRL32:
+			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT
+				| INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_DSRA32:
+			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT
+				| INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_SLLV:
 		case N64_OP_SRLV:
 		case N64_OP_SRAV:
@@ -209,15 +236,15 @@ void fill_emit_flags(n64_insn_t* insn)
 		case N64_OP_BNEL_IDLE:
 			break;
 		case N64_OP_SYNC:
-			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT;
-			/* Needs no further emitters */
+			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT
+				| INSTRUCTION_HAS_EMITTERS;
 			break;
 		case N64_OP_CACHE:
 			/* CACHE can raise TLB Refill, TLB Invalid, Coprocessor Unusable,
 			 * Address Error, Cache Error and Bus Error exceptions on real
 			 * hardware. We don't. */
-			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT;
-			/* Needs no further emitters */
+			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT
+				| INSTRUCTION_HAS_EMITTERS;
 			break;
 		case N64_OP_MFC0:
 		case N64_OP_MTC0:

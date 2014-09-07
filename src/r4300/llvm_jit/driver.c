@@ -51,6 +51,7 @@
 #include "../interupt.h"
 #include "../tlb.h"
 #include "driver.h"
+#include "llvm_bridge.h"
 #include "n64ops.h"
 #include "emitflags.h"
 #include "branches.h"
@@ -559,10 +560,12 @@ const cpu_instruction_table lj_fallback_table = {
 
 void lj_init()
 {
+	llvm_init(); /* transition into C++ */
 }
 
 void lj_exit()
 {
+	llvm_exit(); /* transition into C++ */
 #ifdef LJ_SHOW_OPS_PER_FUNCTION
 	unsigned int i, max;
 	for (max = sizeof(ops_per_func) / sizeof(ops_per_func[0]) - 1; max > 0; max--)
@@ -913,6 +916,7 @@ static size_t get_page_bytes(const precomp_block* page)
 void lj_init_page(precomp_block* page)
 {
 	int i, len;
+	bool page_existed = false;
 	timed_section_start(TIMED_SECTION_COMPILER);
 #ifdef CORE_DBG
 	DebugMessage(M64MSG_INFO, "init page %x - %x", (int) block->start, (int) block->end);
@@ -922,6 +926,7 @@ void lj_init_page(precomp_block* page)
 
 	len = get_page_len(page);
 
+	page_existed = page->block != NULL;
 	if (!page->block)
 	{
 		size_t memsize = get_page_bytes(page);
@@ -940,6 +945,13 @@ void lj_init_page(precomp_block* page)
 		 * detection requires that instructions that have never been seen as
 		 * code have an 'ops' member of current_instruction_table.NOTCOMPILED. */
 		dst->ops = current_instruction_table.NOTCOMPILED;
+		if (page_existed && dst->llvm_fn)
+		{
+			/* Reinitialising a page that already existed. Delete the LLVM
+			 * function backing this opcode, if any, here. */
+			llvm_function_delete(dst->llvm_fn);
+		}
+		dst->llvm_fn = NULL;
 	}
 
 	/* here we're marking the page as a valid code even if it's not compiled
@@ -993,6 +1005,15 @@ void lj_free_page(precomp_block* page)
 {
 	if (page->block)
 	{
+		int i, len = get_page_len(page);
+		for (i = 0; i < len + 1 + (len >> 2); i++)
+		{
+			precomp_instr* dst = page->block + i;
+			if (dst->llvm_fn)
+			{
+				llvm_function_delete(dst->llvm_fn);
+			}
+		}
 		free(page->block);
 		page->block = NULL;
 	}
@@ -1210,7 +1231,7 @@ static void fill_interpreter_ops(const uint32_t* source, const uint32_t start, p
 	for (i = start; i < end; i++)
 	{
 		fill_emit_flags(&insns[i]);
-		if (insns[i].emit_flags & INSTRUCTION_HAS_EMITTERS)
+		if (i > start && insns[i].emit_flags & INSTRUCTION_HAS_EMITTERS)
 			break;
 #ifdef LJ_SHOW_INTERPRETATION
 		printf(" %s", get_n64_op_name(insns[i].opcode));
@@ -1363,24 +1384,22 @@ static uint32_t get_range_end(const uint32_t* source, const uint32_t start, prec
  **********************************************************************/
 static void lj_recompile(const uint32_t* source, const uint32_t start, precomp_block* page)
 {
+	n64_insn_t insns[PAGE_INSNS + 1 + (PAGE_INSNS >> 2)];
+	uint32_t end;
+	void* llvm_fn;
+	
 	timed_section_start(TIMED_SECTION_COMPILER);
 
-	n64_insn_t insns[PAGE_INSNS + 1 + (PAGE_INSNS >> 2)];
-
-	uint32_t end = get_range_end(source, start, page, insns);
+	end = get_range_end(source, start, page, insns);
 
 	if (end == start)
-	{
-		fill_interpreter_ops(source, start, page);
-		goto end;
-	}
-
-	// TODO: Recompile code.
-	fill_interpreter_ops(source, start, page);
-	goto end;
+		goto interpret;
 
 #  ifdef LJ_SHOW_OPS_PER_FUNCTION
 	ops_per_func[end - start]++;
+#  endif
+#  ifdef LJ_SHOW_COMPILATION
+	printf("  %08" PRIX32 " JIT: ", page->start + start * 4);
 #  endif
 
 	/* TODO Properly detect how full the LLVM code cache is, if possible. */
@@ -1389,18 +1408,31 @@ static void lj_recompile(const uint32_t* source, const uint32_t start, precomp_b
 		lj_invalidate_code(INVALIDATE_FULL_CACHE);
 	 */
 
-	// Now act as a dynamic recompiler for the block.
-	// A single function will act as the sequence of opcodes starting at
-	// source[start] and ending at the first unconditional jump. Any
-	// branch inside the block will set the PC and return if it succeeds, to
-	// allow the interpreter loop to consider the PC a new block and call back
-	// here. Failing branches will continue in the same block.
-	page->block[start].ops = (void (*) (void)) next_code;
+	llvm_fn = llvm_function_create(page->start + start * 4);
+	if (!llvm_fn)
+	{
+		DebugMessage(M64MSG_WARNING, "Failed to create an LLVM Function object");
+		goto interpret;
+	}
+	if (!llvm_ir_for_n64(llvm_fn, &insns[start], end - start))
+	{
+		DebugMessage(M64MSG_WARNING, "Failed to emit LLVM IR for a function");
+		goto llvm_cleanup;
+	}
+	op_func_t new_ops = llvm_function_emit(llvm_fn);
+	if (!new_ops)
+	{
+		DebugMessage(M64MSG_WARNING, "Failed to get native code for an LLVM Function");
+		goto llvm_cleanup;
+	}
+	page->block[start].ops = new_ops;
+	page->block[start].llvm_fn = llvm_fn;
+	goto end;
 
-#  ifdef LJ_SHOW_COMPILATION
-	printf("  %08" PRIX32 " JIT: ", page->start + start * 4);
-#  endif
-
+llvm_cleanup:
+	llvm_function_delete(llvm_fn);
+interpret:
+	fill_interpreter_ops(source, start, page);
 end:
 	timed_section_end(TIMED_SECTION_COMPILER);
 }

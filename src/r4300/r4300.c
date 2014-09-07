@@ -364,8 +364,8 @@ void r4300_execute(void)
             PC->ops();
         }
 
-        lj_exit();
         free_blocks();
+        lj_exit();
 #else /* !LLVM_JIT */
         DebugMessage(M64MSG_INFO, "Starting R4300 emulator: Dynamic Recompiler");
         r4300emu = CORE_DYNAREC;
