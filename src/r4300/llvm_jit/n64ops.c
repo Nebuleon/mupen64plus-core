@@ -444,7 +444,7 @@ void parse_n64_insn(const uint32_t op, const uint32_t addr, n64_insn_t* insn)
 			CHECK_RT_0;
 			break;
 		case 15: // Major opcode 15: LUI
-			SET_RT; SET_RS; SET_IMM16; insn->opcode = N64_OP_LUI;
+			SET_RT; SET_IMM16; insn->opcode = N64_OP_LUI;
 			CHECK_RT_0;
 			break;
 		case 16: // Major opcode 16: COP0
