@@ -104,7 +104,7 @@ void* llvm_function_create(uint32_t addr)
 	std::string sName(name);
 
 	llvm::Function* result = llvm::Function::Create(
-		void_to_void, llvm::Function::InternalLinkage, sName, code_cache);
+		void_to_void, llvm::Function::WeakAnyLinkage, sName, code_cache);
 	llvm::BasicBlock::Create(*context, "entry", result);
 	return result;
 }
