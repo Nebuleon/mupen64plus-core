@@ -79,48 +79,136 @@ void fill_emit_flags(n64_insn_t* insn)
 				| INSTRUCTION_HAS_EMITTERS;
 			break;
 		case N64_OP_SLLV:
+			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT
+				| INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_SRLV:
+			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT
+				| INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_SRAV:
+			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT
+				| INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_DSLLV:
+			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT
+				| INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_DSRLV:
+			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT
+				| INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_DSRAV:
+			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT
+				| INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_ADD:
 			// The signed version of ADDU can raise the Integer Overflow
 			// exception on real hardware. We don't.
+			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT
+				| INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_ADDU:
+			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT
+				| INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_SUB:
 			// The signed version of SUBU can raise the Integer Overflow
 			// exception on real hardware. We don't.
+			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT
+				| INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_SUBU:
+			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT
+				| INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_AND:
+			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT
+				| INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_OR:
+			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT
+				| INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_XOR:
+			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT
+				| INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_NOR:
+			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT
+				| INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_SLT:
+			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT
+				| INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_SLTU:
+			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT
+				| INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_DADD:
 			// The signed version of DADDU can raise the Integer Overflow
 			// exception on real hardware. We don't.
+			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT
+				| INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_DADDU:
+			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT
+				| INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_DSUB:
 			// The signed version of DSUBU can raise the Integer Overflow
 			// exception on real hardware. We don't.
+			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT
+				| INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_DSUBU:
+			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT
+				| INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_ADDI:
 			// The signed version of ADDIU can raise the Integer Overflow
 			// exception on real hardware. We don't.
+			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT
+				| INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_ADDIU:
+			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT
+				| INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_SLTI:
+			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT
+				| INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_SLTIU:
+			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT
+				| INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_ANDI:
+			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT
+				| INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_ORI:
+			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT
+				| INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_XORI:
+			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT
+				| INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_LUI:
+			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT
+				| INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_DADDI:
 			// The signed version of DADDIU can raise the Integer Overflow
 			// exception on real hardware. We don't.
+			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT
+				| INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_DADDIU:
-			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT;
+			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT
+				| INSTRUCTION_HAS_EMITTERS;
 			break;
 		case N64_OP_LDL:
 		case N64_OP_LDR:
@@ -147,9 +235,21 @@ void fill_emit_flags(n64_insn_t* insn)
 		case N64_OP_SD:
 			break;
 		case N64_OP_MFHI:
+			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT
+				| INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_MFLO:
+			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT
+				| INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_MTHI:
+			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT
+				| INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_MTLO:
+			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT
+				| INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_MULT:
 		case N64_OP_MULTU:
 		case N64_OP_DIV:
