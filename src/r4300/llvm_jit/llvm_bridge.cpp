@@ -94,6 +94,9 @@ int llvm_init()
 	raw_cout = new llvm::raw_os_ostream(std::cout);
 #endif
 
+	if (llvm_init_globals() != 0)
+		return -1;
+
 	return 0;
 }
 
@@ -131,6 +134,8 @@ void llvm_function_delete(void* fn_ptr)
 
 void llvm_exit()
 {
+	llvm_destroy_globals();
+
 	void_to_void = NULL;
 	delete engine;
 	engine = NULL;

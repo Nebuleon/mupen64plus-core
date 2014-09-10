@@ -31,8 +31,6 @@
 #include "llvm_bridge.h"
 #include "n64ops.h"
 
-#include "../r4300.h" /* get declaration for PC, reg, hi, lo */
-
 struct value_store {
 	llvm::Value* n64_int[32]; // Last LLVM Value held by each N64 GPR.
 	uint32_t n64_int_dirty; // Bit n (0 = LSB) is set if register n is dirty.
@@ -47,21 +45,14 @@ struct value_store {
 
 bool set_pc(llvm::IRBuilder<>& builder, precomp_instr* new_pc)
 {
-	llvm::Value* PC_ptr = llvm::Constant::getIntegerValue(
-		/* (1) Type: (native pointer-sized integer)* */
-		llvm::PointerType::getUnqual(llvm::Type::getIntNTy(*context, sizeof(precomp_instr**) * 8)),
-		/* (2) Value: (size: native pointer-sized integer, value: &PC) */
-		llvm::APInt(sizeof(precomp_instr**) * 8, (uintptr_t) &PC)
-	);
-	FAIL_IF(!PC_ptr);
 	llvm::Value* new_pc_constant = llvm::Constant::getIntegerValue(
-		/* (1) Type: i32 */
-		llvm::Type::getIntNTy(*context, sizeof(precomp_instr*) * 8),
-		/* (2) Value: (size: 4, value: new_pc) */
+		/* (1) Type: i8* */
+		llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(*context)),
+		/* (2) Value: (size: native pointer-sized integer, value: new_pc) */
 		llvm::APInt(sizeof(precomp_instr*) * 8, (uintptr_t) new_pc)
 	);
 	FAIL_IF(!new_pc_constant);
-	FAIL_IF(!builder.CreateStore(new_pc_constant, PC_ptr));
+	FAIL_IF(!builder.CreateStore(new_pc_constant, llvm_PC));
 	return true;
 }
 
@@ -75,15 +66,8 @@ llvm::Value* load_n64_int64(llvm::IRBuilder<>& builder, value_store& values, uin
 	if (values.n64_int[src_reg])
 		return values.n64_int[src_reg];
 
-	llvm::Value* regs_ptr = llvm::Constant::getIntegerValue(
-		/* (1) Type: [32 x i64]* */
-		llvm::PointerType::getUnqual(llvm::ArrayType::get(llvm::Type::getInt64Ty(*context), 32)),
-		/* (2) Value: (size: native pointer-sized integer, value: &reg[0]) */
-		llvm::APInt(sizeof(uint64_t*) * 8, (uintptr_t) reg)
-	);
-	NULL_IF(!regs_ptr);
 	/* Generate the address of &reg[src_ptr], type i64. */
-	llvm::Value* src_reg_ptr = builder.CreateConstInBoundsGEP2_32(regs_ptr, 0, src_reg);
+	llvm::Value* src_reg_ptr = builder.CreateConstInBoundsGEP2_32(llvm_reg, 0, src_reg);
 	NULL_IF(!src_reg_ptr);
 	/* Load the 64-bit register. */
 	llvm::Value* result = builder.CreateLoad(src_reg_ptr);
@@ -125,15 +109,8 @@ llvm::Value* load_n64_hi(llvm::IRBuilder<>& builder, value_store& values)
 	if (values.n64_hi)
 		return values.n64_hi;
 
-	llvm::Value* hi_ptr = llvm::Constant::getIntegerValue(
-		/* (1) Type: i64* */
-		llvm::PointerType::getUnqual(llvm::Type::getInt64Ty(*context)),
-		/* (2) Value: (size: native pointer-sized integer, value: &hi) */
-		llvm::APInt(sizeof(uint64_t*) * 8, (uintptr_t) &hi)
-	);
-	NULL_IF(!hi_ptr);
 	/* Load the 64-bit register. */
-	llvm::Value* result = builder.CreateLoad(hi_ptr);
+	llvm::Value* result = builder.CreateLoad(llvm_hi);
 	NULL_IF(!result);
 
 	values.n64_hi = result;
@@ -145,15 +122,8 @@ llvm::Value* load_n64_lo(llvm::IRBuilder<>& builder, value_store& values)
 	if (values.n64_lo)
 		return values.n64_lo;
 
-	llvm::Value* lo_ptr = llvm::Constant::getIntegerValue(
-		/* (1) Type: i64* */
-		llvm::PointerType::getUnqual(llvm::Type::getInt64Ty(*context)),
-		/* (2) Value: (size: native pointer-sized integer, value: &lo) */
-		llvm::APInt(sizeof(uint64_t*) * 8, (uintptr_t) &lo)
-	);
-	NULL_IF(!lo_ptr);
 	/* Load the 64-bit register. */
-	llvm::Value* result = builder.CreateLoad(lo_ptr);
+	llvm::Value* result = builder.CreateLoad(llvm_lo);
 	NULL_IF(!result);
 
 	values.n64_lo = result;
@@ -176,15 +146,8 @@ bool store_queued_regs(llvm::IRBuilder<>& builder, value_store& values)
 {
 	for (int i = 1; i < 32; i++) {
 		if (values.n64_int_dirty & (UINT32_C(1) << i)) {
-			llvm::Value* regs_ptr = llvm::Constant::getIntegerValue(
-				/* (1) Type: [32 x i64]* */
-				llvm::PointerType::getUnqual(llvm::ArrayType::get(llvm::Type::getInt64Ty(*context), 32)),
-				/* (2) Value: (size: native pointer-sized integer, value: &reg[0]) */
-				llvm::APInt(sizeof(uint64_t*) * 8, (uintptr_t) reg)
-			);
-			FAIL_IF(!regs_ptr);
 			/* Generate the address of &reg[i], type i64. */
-			llvm::Value* dst_reg_ptr = builder.CreateConstInBoundsGEP2_32(regs_ptr, 0, i);
+			llvm::Value* dst_reg_ptr = builder.CreateConstInBoundsGEP2_32(llvm_reg, 0, i);
 			FAIL_IF(!dst_reg_ptr);
 			/* Store the 64-bit register. */
 			FAIL_IF(!builder.CreateStore(values.n64_int[i], dst_reg_ptr));
@@ -194,27 +157,12 @@ bool store_queued_regs(llvm::IRBuilder<>& builder, value_store& values)
 	values.n64_int_dirty = 0;
 
 	if (values.n64_hi_dirty) {
-		llvm::Value* hi_ptr = llvm::Constant::getIntegerValue(
-			/* (1) Type: i64* */
-			llvm::PointerType::getUnqual(llvm::Type::getInt64Ty(*context)),
-			/* (2) Value: (size: native pointer-sized integer, value: &hi) */
-			llvm::APInt(sizeof(uint64_t*) * 8, (uintptr_t) &hi)
-		);
-		FAIL_IF(!hi_ptr);
 		/* Store the 64-bit register. */
-		FAIL_IF(!builder.CreateStore(values.n64_hi, hi_ptr));
+		FAIL_IF(!builder.CreateStore(values.n64_hi, llvm_hi));
 	}
 
 	if (values.n64_lo_dirty) {
-		llvm::Value* lo_ptr = llvm::Constant::getIntegerValue(
-			/* (1) Type: i64* */
-			llvm::PointerType::getUnqual(llvm::Type::getInt64Ty(*context)),
-			/* (2) Value: (size: native pointer-sized integer, value: &lo) */
-			llvm::APInt(sizeof(uint64_t*) * 8, (uintptr_t) &lo)
-		);
-		FAIL_IF(!lo_ptr);
-		/* Store the 64-bit register. */
-		FAIL_IF(!builder.CreateStore(values.n64_lo, lo_ptr));
+		FAIL_IF(!builder.CreateStore(values.n64_lo, llvm_lo));
 	}
 	values.n64_hi = values.n64_lo = NULL;
 	values.n64_hi_dirty = values.n64_lo_dirty = false;

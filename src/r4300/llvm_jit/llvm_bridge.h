@@ -43,7 +43,9 @@ extern "C" {
 typedef void (*op_func_t) (void);
 
 int llvm_init();
+int llvm_init_globals();
 void llvm_exit();
+void llvm_destroy_globals();
 
 /* Creates an LLVM Function object, named after the passed-in Program Counter
  * value and containing a basic block called 'entry', and returns it.
@@ -109,8 +111,18 @@ void llvm_function_delete(void* fn_ptr);
 } /* extern "C" */
 
 #  include "llvm/IR/LLVMContext.h" /* LLVMContext */
+#  include "llvm/ExecutionEngine/ExecutionEngine.h" /* EngineBuilder etc. */
+#  include "llvm/IR/GlobalVariable.h" /* GlobalVariable */
+#  include "llvm/IR/Module.h" /* Module */
 
 extern llvm::LLVMContext* context;
+extern llvm::Module* code_cache;
+extern llvm::ExecutionEngine* engine;
+
+extern llvm::GlobalVariable* llvm_reg; /* GlobalVariable representing 'reg' */
+extern llvm::GlobalVariable* llvm_hi; /* GlobalVariable representing 'hi' */
+extern llvm::GlobalVariable* llvm_lo; /* GlobalVariable representing 'lo' */
+extern llvm::GlobalVariable* llvm_PC; /* GlobalVariable representing 'PC' */
 #endif /* __cplusplus */
 
 #endif /* !__LLVM_JIT_BRIDGE_H__ */

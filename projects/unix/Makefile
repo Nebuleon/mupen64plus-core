@@ -488,7 +488,8 @@ ifneq ($(DYNAREC), )
       $(SRCDIR)/r4300/llvm_jit/emitflags.c \
       $(SRCDIR)/r4300/llvm_jit/n64ops.c \
       $(SRCDIR)/r4300/llvm_jit/llvm_bridge.cpp \
-      $(SRCDIR)/r4300/llvm_jit/llvm_emit.cpp
+      $(SRCDIR)/r4300/llvm_jit/llvm_emit.cpp \
+      $(SRCDIR)/r4300/llvm_jit/llvm_globals.cpp
   else
     ifeq ($(NEW_DYNAREC), 1)
       ifeq ($(DYNAREC), x86)
