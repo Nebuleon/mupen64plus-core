@@ -716,6 +716,84 @@ bool llvm_ir_for_insn(llvm::IRBuilder<>& builder, value_store& values, const n64
 			break;
 		}
 
+		case N64_OP_MULT:
+		{
+			// This is a 32-bit by 32-bit signed multiplication with 64-bit
+			// result. The upper and lower 32 bits go into HI and LO, both
+			// sign-extended to 64 bits independently from each other.
+			llvm::Value* a32 = load_n64_int32(builder, values, n64_insn->rs);
+			llvm::Value* b32 = load_n64_int32(builder, values, n64_insn->rt);
+			FAIL_IF(!a32 || !b32);
+			// In LLVM, 64-bit operands are required in order to get a 64-bit
+			// result. So we sign-extend the 32-bit truncated operands back to
+			// 64-bit.
+			llvm::Value* a64 = builder.CreateSExt(a32,
+				llvm::Type::getInt64Ty(*context));
+			llvm::Value* b64 = builder.CreateSExt(b32,
+				llvm::Type::getInt64Ty(*context));
+			FAIL_IF(!a64 || !b64);
+			// We know the result will not overflow in any way.
+			llvm::Value* result64 = builder.CreateMul(a64, b64, "",
+				true /* nuw (no unsigned wrap) */, true /* nsw (signed) */);
+			// Split the result.
+			FAIL_IF(!result64);
+			llvm::Value* const32 = llvm::Constant::getIntegerValue(
+				llvm::Type::getInt64Ty(*context), llvm::APInt(64, 32)
+			);
+			FAIL_IF(!const32);
+			// HI: Arithmetic shift right by 32 performs sign-extension.
+			llvm::Value* hi64 = builder.CreateAShr(result64, const32);
+			// LO: Truncate to 32 bits then sign-extend the result.
+			llvm::Value* lo32 = builder.CreateTrunc(result64,
+				llvm::Type::getInt32Ty(*context));
+			FAIL_IF(!lo32);
+			llvm::Value* lo64 = builder.CreateSExt(lo32,
+				llvm::Type::getInt64Ty(*context));
+			FAIL_IF(!hi64 || !lo64);
+			queue_n64_hi(values, hi64);
+			queue_n64_lo(values, lo64);
+			break;
+		}
+
+		case N64_OP_MULTU:
+		{
+			// This is a 32-bit by 32-bit unsigned multiplication with 64-bit
+			// result. The upper and lower 32 bits go into HI and LO, both
+			// sign-extended to 64 bits independently from each other.
+			llvm::Value* a32 = load_n64_int32(builder, values, n64_insn->rs);
+			llvm::Value* b32 = load_n64_int32(builder, values, n64_insn->rt);
+			FAIL_IF(!a32 || !b32);
+			// In LLVM, 64-bit operands are required in order to get a 64-bit
+			// result. So we zero-extend the 32-bit truncated operands back to
+			// 64-bit.
+			llvm::Value* a64 = builder.CreateZExt(a32,
+				llvm::Type::getInt64Ty(*context));
+			llvm::Value* b64 = builder.CreateZExt(b32,
+				llvm::Type::getInt64Ty(*context));
+			FAIL_IF(!a64 || !b64);
+			// We know the result will not overflow in any way.
+			llvm::Value* result64 = builder.CreateMul(a64, b64, "",
+				true /* nuw (no unsigned wrap) */, true /* nsw (signed) */);
+			// Split the result.
+			FAIL_IF(!result64);
+			llvm::Value* const32 = llvm::Constant::getIntegerValue(
+				llvm::Type::getInt64Ty(*context), llvm::APInt(64, 32)
+			);
+			FAIL_IF(!const32);
+			// HI: Arithmetic shift right by 32 performs sign-extension.
+			llvm::Value* hi64 = builder.CreateAShr(result64, const32);
+			// LO: Truncate to 32 bits then sign-extend the result.
+			llvm::Value* lo32 = builder.CreateTrunc(result64,
+				llvm::Type::getInt32Ty(*context));
+			FAIL_IF(!lo32);
+			llvm::Value* lo64 = builder.CreateSExt(lo32,
+				llvm::Type::getInt64Ty(*context));
+			FAIL_IF(!hi64 || !lo64);
+			queue_n64_hi(values, hi64);
+			queue_n64_lo(values, lo64);
+			break;
+		}
+
 		default:
 			assert(false && "Opcode without an implementation requested in llvm_ir_for_insn");
 			return false;

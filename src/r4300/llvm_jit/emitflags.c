@@ -251,7 +251,13 @@ void fill_emit_flags(n64_insn_t* insn)
 				| INSTRUCTION_HAS_EMITTERS;
 			break;
 		case N64_OP_MULT:
+			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT
+				| INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_MULTU:
+			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT
+				| INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_DIV:
 		case N64_OP_DIVU:
 		case N64_OP_DMULT:
