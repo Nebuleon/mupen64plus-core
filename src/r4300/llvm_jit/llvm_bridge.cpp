@@ -22,10 +22,12 @@
 #include <string>
 #include <stdio.h> /* printf */
 
+#include "llvm/Transforms/Scalar.h" /* declarations for optimisation passes */
 #include "llvm/Support/TargetSelect.h" /* InitializeNativeTarget */
 #include "llvm/ExecutionEngine/ExecutionEngine.h" /* EngineBuilder etc. */
 #include "llvm/ExecutionEngine/JIT.h" /* A static constructor creates a JIT */
 #include "llvm/IR/LLVMContext.h" /* LLVMContext, getGlobalContext */
+#include "llvm/PassManager.h" /* FunctionPassManager */
 #ifdef LJ_VERIFY_LLVM_IR
 #  include <iostream> /* cout */
 #  include "llvm/Support/raw_os_ostream.h"
@@ -42,6 +44,8 @@ llvm::Module* code_cache; // All functions will be emitted into this.
 llvm::ExecutionEngine* engine;
 
 llvm::FunctionType* void_to_void; // Represents a void(void) function in LLVM.
+
+llvm::FunctionPassManager* optimizer;
 
 #ifdef LJ_VERIFY_LLVM_IR
 llvm::raw_os_ostream* raw_cout;
@@ -97,6 +101,18 @@ int llvm_init()
 	if (llvm_init_globals() != 0)
 		return -1;
 
+	optimizer = new llvm::FunctionPassManager(code_cache);
+	if (!optimizer) {
+		printf("LLVM Warning: Failed to create the LLVM FunctionPassManager to optimise code\n");
+	}
+	// Instruction combining must be performed first to reduce the number
+	// of instructions that need to be read during further optimisations.
+	optimizer->add(llvm::createInstructionCombiningPass());
+	// Reduce the number of identical operations performed multiple times
+	// on the same operands.
+	optimizer->add(llvm::createGVNPass());
+	optimizer->doInitialization();
+
 	return 0;
 }
 
@@ -114,6 +130,10 @@ void* llvm_function_create(uint32_t addr)
 
 op_func_t llvm_function_emit(void* fn_ptr)
 {
+	// Optimise the IR of the function.
+	if (optimizer)
+		optimizer->run(*(llvm::Function*) fn_ptr);
+
 #ifdef LJ_SHOW_LLVM_IR
 	((llvm::Function*) fn_ptr)->dump();
 #endif
@@ -135,6 +155,10 @@ void llvm_function_delete(void* fn_ptr)
 void llvm_exit()
 {
 	llvm_destroy_globals();
+
+	optimizer->doFinalization();
+	delete optimizer;
+	optimizer = NULL;
 
 	void_to_void = NULL;
 	delete engine;
