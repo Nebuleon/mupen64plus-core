@@ -212,20 +212,35 @@ void fill_emit_flags(n64_insn_t* insn)
 			break;
 		case N64_OP_LDL:
 		case N64_OP_LDR:
+			break;
 		case N64_OP_LB:
+			insn->emit_flags = INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_LH:
+			insn->emit_flags = INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_LWL:
 			break;
 		case N64_OP_LW:
 			insn->emit_flags = INSTRUCTION_HAS_EMITTERS;
 			break;
 		case N64_OP_LBU:
+			insn->emit_flags = INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_LHU:
+			insn->emit_flags = INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_LWR:
+			break;
 		case N64_OP_LWU:
+			insn->emit_flags = INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_LL:
 		case N64_OP_LLD:
+			break;
 		case N64_OP_LD:
+			insn->emit_flags = INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_SB:
 		case N64_OP_SH:
 		case N64_OP_SWL:

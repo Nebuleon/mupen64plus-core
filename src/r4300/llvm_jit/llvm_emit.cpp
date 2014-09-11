@@ -517,7 +517,13 @@ bool llvm_ir_for_insn(llvm::IRBuilder<>& builder, value_store& values, const n64
 
 		/* ... */
 
+		case N64_OP_LB:
+		case N64_OP_LBU:
+		case N64_OP_LH:
+		case N64_OP_LHU:
 		case N64_OP_LW:
+		case N64_OP_LWU:
+		case N64_OP_LD:
 		{
 			// Calculate the (N64) address to be loaded from.
 			llvm::Value* rs32 = load_n64_int32(builder, values, n64_insn->rs);
@@ -542,9 +548,29 @@ bool llvm_ir_for_insn(llvm::IRBuilder<>& builder, value_store& values, const n64
 			std::vector<llvm::Value*> gepArgs;
 			gepArgs.push_back(builder.getInt32(0));
 			gepArgs.push_back(address_hi16);
+
 			// Calculate where the function pointer is.
-			llvm::Value* accessor_addr = builder.CreateInBoundsGEP(llvm_readmem, gepArgs);
+			llvm::Value* accessor_addr = NULL;
+			switch (n64_insn->opcode) {
+				case N64_OP_LB:
+				case N64_OP_LBU:
+					accessor_addr = builder.CreateInBoundsGEP(llvm_readmemb, gepArgs);
+					break;
+				case N64_OP_LH:
+				case N64_OP_LHU:
+					accessor_addr = builder.CreateInBoundsGEP(llvm_readmemh, gepArgs);
+					break;
+				case N64_OP_LW:
+				case N64_OP_LWU:
+					accessor_addr = builder.CreateInBoundsGEP(llvm_readmem, gepArgs);
+					break;
+				case N64_OP_LD:
+					accessor_addr = builder.CreateInBoundsGEP(llvm_readmemd, gepArgs);
+					break;
+				default: break;
+			}
 			FAIL_IF(!accessor_addr);
+
 			// Then load it.
 			llvm::Value* accessor = builder.CreateLoad(accessor_addr);
 			// If an N64 exception occurs, the Program Counter needs to have
@@ -560,23 +586,53 @@ bool llvm_ir_for_insn(llvm::IRBuilder<>& builder, value_store& values, const n64
 			llvm::Value* new_address_is_0 = builder.CreateICmpEQ(
 				new_address, builder.getInt32(0));
 			llvm::BasicBlock* if_zero = llvm::BasicBlock::Create(
-				*context, "lw_exception", builder.GetInsertBlock()->getParent());
+				*context, "load_exception", builder.GetInsertBlock()->getParent());
 			llvm::BasicBlock* if_nonzero = llvm::BasicBlock::Create(
-				*context, "lw_normal", builder.GetInsertBlock()->getParent());
+				*context, "load_normal", builder.GetInsertBlock()->getParent());
 			FAIL_IF(!new_address_is_0 || !if_zero || !if_nonzero);
 			// Create a conditional branch that will go to our exiting block
 			// (if_zero) if an N64 exception occurred, otherwise if_nonzero.
 			FAIL_IF(!builder.CreateCondBr(new_address_is_0, if_zero, if_nonzero));
 			builder.SetInsertPoint(if_zero);
+
 			// if_zero: skip_jump = 0; (in case the load is in a delay slot)
 			// return;
 			FAIL_IF(!builder.CreateStore(builder.getInt32(0), llvm_skip_jump));
 			FAIL_IF(!builder.CreateRetVoid());
-			// if_nonzero: (fixup) load the register and sign-extend it
+
+			// if_nonzero:
 			builder.SetInsertPoint(if_nonzero);
-			llvm::Value* rt32 = load_n64_int32(builder, values, n64_insn->rt);
-			FAIL_IF(!rt32);
-			FAIL_IF(!queue_n64_int32(builder, values, n64_insn->rt, rt32));
+			switch (n64_insn->opcode) {
+				// Fixup: Load the register and sign-extend it, only if signed
+				case N64_OP_LB:
+				{
+					llvm::Value* rt64 = load_n64_int64(builder, values, n64_insn->rt);
+					FAIL_IF(!rt64);
+					llvm::Value* rt8 = builder.CreateTrunc(rt64, builder.getInt8Ty());
+					FAIL_IF(!rt8);
+					rt64 = builder.CreateSExt(rt8, builder.getInt64Ty());
+					queue_n64_int64(values, n64_insn->rt, rt64);
+					break;
+				}
+				case N64_OP_LH:
+				{
+					llvm::Value* rt64 = load_n64_int64(builder, values, n64_insn->rt);
+					FAIL_IF(!rt64);
+					llvm::Value* rt16 = builder.CreateTrunc(rt64, builder.getInt16Ty());
+					FAIL_IF(!rt16);
+					rt64 = builder.CreateSExt(rt16, builder.getInt64Ty());
+					queue_n64_int64(values, n64_insn->rt, rt64);
+					break;
+				}
+				case N64_OP_LW:
+				{
+					llvm::Value* rt32 = load_n64_int32(builder, values, n64_insn->rt);
+					FAIL_IF(!rt32);
+					FAIL_IF(!queue_n64_int32(builder, values, n64_insn->rt, rt32));
+					break;
+				}
+				default: break;
+			}
 			break;
 		}
 
