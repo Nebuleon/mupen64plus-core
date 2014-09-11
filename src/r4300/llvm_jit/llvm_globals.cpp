@@ -23,12 +23,17 @@
 #include "llvm/IR/GlobalVariable.h" /* GlobalVariable */
 
 #include "llvm_bridge.h"
-#include "../r4300.h" /* get declaration for PC, reg, hi, lo */
+#include "../r4300.h" /* get declaration for PC, reg, hi, lo, skip_jump */
+#include "memory/memory.h" /* get declaration for address, readmem... */
 
 llvm::GlobalVariable* llvm_reg;
 llvm::GlobalVariable* llvm_hi;
 llvm::GlobalVariable* llvm_lo;
 llvm::GlobalVariable* llvm_PC;
+llvm::GlobalVariable* llvm_readmem;
+llvm::GlobalVariable* llvm_address;
+llvm::GlobalVariable* llvm_rdword;
+llvm::GlobalVariable* llvm_skip_jump;
 
 int llvm_init_globals()
 {
@@ -63,10 +68,46 @@ int llvm_init_globals()
 		false, llvm::GlobalValue::ExternalLinkage, NULL, "PC"
 	);
 	if (!llvm_PC) return -1;
+	llvm_readmem = new llvm::GlobalVariable(
+		*code_cache,
+		/* (2) Type: [65536 x void()*] */
+		llvm::ArrayType::get(
+			llvm::PointerType::getUnqual(llvm::FunctionType::get(llvm::Type::getVoidTy(*context), false)),
+			65536
+		),
+		false, llvm::GlobalValue::ExternalLinkage, NULL, "readmem"
+	);
+	if (!llvm_readmem) return -1;
+	llvm_address = new llvm::GlobalVariable(
+		*code_cache,
+		/* (2) Type: i32 */
+		llvm::Type::getInt32Ty(*context),
+		false, llvm::GlobalValue::ExternalLinkage, NULL, "address"
+	);
+	if (!llvm_address) return -1;
+	llvm_rdword = new llvm::GlobalVariable(
+		*code_cache,
+		/* (2) Type: i64* */
+		llvm::PointerType::getUnqual(llvm::Type::getInt64Ty(*context)),
+		false, llvm::GlobalValue::ExternalLinkage, NULL, "rdword"
+	);
+	if (!llvm_rdword) return -1;
+	llvm_skip_jump = new llvm::GlobalVariable(
+		*code_cache,
+		/* (2) Type: i32 */
+		llvm::Type::getInt32Ty(*context),
+		false, llvm::GlobalValue::ExternalLinkage, NULL, "skip_jump"
+	);
+	if (!llvm_skip_jump) return -1;
+	code_cache->dump();
 	engine->updateGlobalMapping(llvm_reg, reg);
 	engine->updateGlobalMapping(llvm_hi, &hi);
 	engine->updateGlobalMapping(llvm_lo, &lo);
 	engine->updateGlobalMapping(llvm_PC, &PC);
+	engine->updateGlobalMapping(llvm_readmem, readmem);
+	engine->updateGlobalMapping(llvm_address, &address);
+	engine->updateGlobalMapping(llvm_rdword, &rdword);
+	engine->updateGlobalMapping(llvm_skip_jump, &skip_jump);
 	return 0;
 }
 
@@ -76,5 +117,10 @@ void llvm_destroy_globals()
 	llvm_hi->eraseFromParent();
 	llvm_lo->eraseFromParent();
 	llvm_PC->eraseFromParent();
-	llvm_reg = llvm_hi = llvm_lo = llvm_PC = NULL;
+	llvm_readmem->eraseFromParent();
+	llvm_address->eraseFromParent();
+	llvm_rdword->eraseFromParent();
+	llvm_skip_jump->eraseFromParent();
+	llvm_reg = llvm_hi = llvm_lo = llvm_PC =
+		llvm_readmem = llvm_address = llvm_rdword = llvm_skip_jump = NULL;
 }

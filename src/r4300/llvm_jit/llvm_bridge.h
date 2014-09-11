@@ -123,6 +123,10 @@ extern llvm::GlobalVariable* llvm_reg; /* GlobalVariable representing 'reg' */
 extern llvm::GlobalVariable* llvm_hi; /* GlobalVariable representing 'hi' */
 extern llvm::GlobalVariable* llvm_lo; /* GlobalVariable representing 'lo' */
 extern llvm::GlobalVariable* llvm_PC; /* GlobalVariable representing 'PC' */
+extern llvm::GlobalVariable* llvm_readmem;
+extern llvm::GlobalVariable* llvm_address;
+extern llvm::GlobalVariable* llvm_rdword;
+extern llvm::GlobalVariable* llvm_skip_jump;
 #endif /* __cplusplus */
 
 #endif /* !__LLVM_JIT_BRIDGE_H__ */
