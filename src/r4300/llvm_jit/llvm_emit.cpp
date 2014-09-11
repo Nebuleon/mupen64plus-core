@@ -175,125 +175,67 @@ bool llvm_ir_for_insn(llvm::IRBuilder<>& builder, value_store& values, const n64
 			break;
 
 		case N64_OP_SLL:
-		{
-			llvm::Value* a = load_n64_int32(builder, values, n64_insn->rt);
-			FAIL_IF(!a);
-			llvm::Value* result32 = builder.CreateShl(a, n64_insn->imm);
-			FAIL_IF(!result32);
-			FAIL_IF(!queue_n64_int32(builder, values, n64_insn->rd, result32));
-			break;
-		}
-
 		case N64_OP_SRL:
-		{
-			llvm::Value* a = load_n64_int32(builder, values, n64_insn->rt);
-			FAIL_IF(!a);
-			llvm::Value* result32 = builder.CreateLShr(a, n64_insn->imm);
-			FAIL_IF(!result32);
-			FAIL_IF(!queue_n64_int32(builder, values, n64_insn->rd, result32));
-			break;
-		}
-
 		case N64_OP_SRA:
 		{
 			llvm::Value* a = load_n64_int32(builder, values, n64_insn->rt);
 			FAIL_IF(!a);
-			llvm::Value* result32 = builder.CreateAShr(a, n64_insn->imm);
+			llvm::Value* result32 = NULL;
+			switch (n64_insn->opcode) {
+				case N64_OP_SLL:
+					result32 = builder.CreateShl(a, n64_insn->imm);
+					break;
+				case N64_OP_SRL:
+					result32 = builder.CreateLShr(a, n64_insn->imm);
+					break;
+				case N64_OP_SRA:
+					result32 = builder.CreateAShr(a, n64_insn->imm);
+					break;
+				default: break;
+			}
 			FAIL_IF(!result32);
 			FAIL_IF(!queue_n64_int32(builder, values, n64_insn->rd, result32));
 			break;
 		}
 
 		case N64_OP_DSLL:
-		{
-			llvm::Value* a = load_n64_int64(builder, values, n64_insn->rt);
-			FAIL_IF(!a);
-			llvm::Value* result64 = builder.CreateShl(a, n64_insn->imm);
-			FAIL_IF(!result64);
-			queue_n64_int64(values, n64_insn->rd, result64);
-			break;
-		}
-
 		case N64_OP_DSRL:
-		{
-			llvm::Value* a = load_n64_int64(builder, values, n64_insn->rt);
-			FAIL_IF(!a);
-			llvm::Value* result64 = builder.CreateLShr(a, n64_insn->imm);
-			FAIL_IF(!result64);
-			queue_n64_int64(values, n64_insn->rd, result64);
-			break;
-		}
-
 		case N64_OP_DSRA:
-		{
-			llvm::Value* a = load_n64_int64(builder, values, n64_insn->rt);
-			FAIL_IF(!a);
-			llvm::Value* result64 = builder.CreateAShr(a, n64_insn->imm);
-			FAIL_IF(!result64);
-			queue_n64_int64(values, n64_insn->rd, result64);
-			break;
-		}
-
 		case N64_OP_DSLL32:
-		{
-			llvm::Value* a = load_n64_int64(builder, values, n64_insn->rt);
-			FAIL_IF(!a);
-			llvm::Value* result64 = builder.CreateShl(a, 32 + n64_insn->imm);
-			FAIL_IF(!result64);
-			queue_n64_int64(values, n64_insn->rd, result64);
-			break;
-		}
-
 		case N64_OP_DSRL32:
-		{
-			llvm::Value* a = load_n64_int64(builder, values, n64_insn->rt);
-			FAIL_IF(!a);
-			llvm::Value* result64 = builder.CreateLShr(a, 32 + n64_insn->imm);
-			FAIL_IF(!result64);
-			queue_n64_int64(values, n64_insn->rd, result64);
-			break;
-		}
-
 		case N64_OP_DSRA32:
 		{
 			llvm::Value* a = load_n64_int64(builder, values, n64_insn->rt);
 			FAIL_IF(!a);
-			llvm::Value* result64 = builder.CreateAShr(a, 32 + n64_insn->imm);
+			llvm::Value* result64 = NULL;
+			switch (n64_insn->opcode) {
+				case N64_OP_DSLL:
+					result64 = builder.CreateShl(a, n64_insn->imm);
+					break;
+				case N64_OP_DSRL:
+					result64 = builder.CreateLShr(a, n64_insn->imm);
+					break;
+				case N64_OP_DSRA:
+					result64 = builder.CreateAShr(a, n64_insn->imm);
+					break;
+				case N64_OP_DSLL32:
+					result64 = builder.CreateShl(a, 32 + n64_insn->imm);
+					break;
+				case N64_OP_DSRL32:
+					result64 = builder.CreateLShr(a, 32 + n64_insn->imm);
+					break;
+				case N64_OP_DSRA32:
+					result64 = builder.CreateAShr(a, 32 + n64_insn->imm);
+					break;
+				default: break;
+			}
 			FAIL_IF(!result64);
 			queue_n64_int64(values, n64_insn->rd, result64);
 			break;
 		}
 
 		case N64_OP_SLLV:
-		{
-			llvm::Value* a = load_n64_int32(builder, values, n64_insn->rt);
-			llvm::Value* b = load_n64_int32(builder, values, n64_insn->rs);
-			// The shift amount must not be greater than 31 in LLVM.
-			// The MIPS specification states that only the 5 least significant
-			// bits contribute to the shift amount (so the mask is 31).
-			FAIL_IF(!a || !b);
-			llvm::Value* sa = builder.CreateAnd(b, 31);
-			llvm::Value* result32 = builder.CreateShl(a, sa);
-			FAIL_IF(!result32);
-			FAIL_IF(!queue_n64_int32(builder, values, n64_insn->rd, result32));
-			break;
-		}
-
 		case N64_OP_SRLV:
-		{
-			llvm::Value* a = load_n64_int32(builder, values, n64_insn->rt);
-			llvm::Value* b = load_n64_int32(builder, values, n64_insn->rs);
-			// The shift amount must not be greater than 31 in LLVM.
-			// The MIPS specification states that only the 5 least significant
-			// bits contribute to the shift amount (so the mask is 31).
-			FAIL_IF(!a || !b);
-			llvm::Value* sa = builder.CreateAnd(b, 31);
-			llvm::Value* result32 = builder.CreateLShr(a, sa);
-			FAIL_IF(!result32);
-			FAIL_IF(!queue_n64_int32(builder, values, n64_insn->rd, result32));
-			break;
-		}
-
 		case N64_OP_SRAV:
 		{
 			llvm::Value* a = load_n64_int32(builder, values, n64_insn->rt);
@@ -303,42 +245,26 @@ bool llvm_ir_for_insn(llvm::IRBuilder<>& builder, value_store& values, const n64
 			// bits contribute to the shift amount (so the mask is 31).
 			FAIL_IF(!a || !b);
 			llvm::Value* sa = builder.CreateAnd(b, 31);
-			llvm::Value* result32 = builder.CreateAShr(a, sa);
+			llvm::Value* result32 = NULL;
+			switch (n64_insn->opcode) {
+				case N64_OP_SLLV:
+					result32 = builder.CreateShl(a, sa);
+					break;
+				case N64_OP_SRLV:
+					result32 = builder.CreateLShr(a, sa);
+					break;
+				case N64_OP_SRAV:
+					result32 = builder.CreateAShr(a, sa);
+					break;
+				default: break;
+			}
 			FAIL_IF(!result32);
 			FAIL_IF(!queue_n64_int32(builder, values, n64_insn->rd, result32));
 			break;
 		}
 
 		case N64_OP_DSLLV:
-		{
-			llvm::Value* a = load_n64_int64(builder, values, n64_insn->rt);
-			llvm::Value* b = load_n64_int64(builder, values, n64_insn->rs);
-			// The shift amount must not be greater than 63 in LLVM.
-			// The MIPS specification states that only the 6 least significant
-			// bits contribute to the shift amount (so the mask is 63).
-			FAIL_IF(!a || !b);
-			llvm::Value* sa = builder.CreateAnd(b, 63);
-			llvm::Value* result64 = builder.CreateShl(a, sa);
-			FAIL_IF(!result64);
-			queue_n64_int64(values, n64_insn->rd, result64);
-			break;
-		}
-
 		case N64_OP_DSRLV:
-		{
-			llvm::Value* a = load_n64_int64(builder, values, n64_insn->rt);
-			llvm::Value* b = load_n64_int64(builder, values, n64_insn->rs);
-			// The shift amount must not be greater than 63 in LLVM.
-			// The MIPS specification states that only the 6 least significant
-			// bits contribute to the shift amount (so the mask is 63).
-			FAIL_IF(!a || !b);
-			llvm::Value* sa = builder.CreateAnd(b, 63);
-			llvm::Value* result64 = builder.CreateLShr(a, sa);
-			FAIL_IF(!result64);
-			queue_n64_int64(values, n64_insn->rd, result64);
-			break;
-		}
-
 		case N64_OP_DSRAV:
 		{
 			llvm::Value* a = load_n64_int64(builder, values, n64_insn->rt);
@@ -348,23 +274,25 @@ bool llvm_ir_for_insn(llvm::IRBuilder<>& builder, value_store& values, const n64
 			// bits contribute to the shift amount (so the mask is 63).
 			FAIL_IF(!a || !b);
 			llvm::Value* sa = builder.CreateAnd(b, 63);
-			llvm::Value* result64 = builder.CreateAShr(a, sa);
+			llvm::Value* result64 = NULL;
+			switch (n64_insn->opcode) {
+				case N64_OP_DSLLV:
+					result64 = builder.CreateShl(a, sa);
+					break;
+				case N64_OP_DSRLV:
+					result64 = builder.CreateLShr(a, sa);
+					break;
+				case N64_OP_DSRAV:
+					result64 = builder.CreateAShr(a, sa);
+					break;
+				default: break;
+			}
 			FAIL_IF(!result64);
 			queue_n64_int64(values, n64_insn->rd, result64);
 			break;
 		}
 
 		case N64_OP_ADD:
-		{
-			llvm::Value* a = load_n64_int32(builder, values, n64_insn->rs);
-			llvm::Value* b = load_n64_int32(builder, values, n64_insn->rt);
-			FAIL_IF(!a || !b);
-			llvm::Value* result32 = builder.CreateAdd(a, b);
-			FAIL_IF(!result32);
-			FAIL_IF(!queue_n64_int32(builder, values, n64_insn->rd, result32));
-			break;
-		}
-
 		case N64_OP_ADDU:
 		{
 			llvm::Value* a = load_n64_int32(builder, values, n64_insn->rs);
@@ -407,15 +335,14 @@ bool llvm_ir_for_insn(llvm::IRBuilder<>& builder, value_store& values, const n64
 
 		case N64_OP_OR:
 		{
+			llvm::Value* a = load_n64_int64(builder, values, n64_insn->rs);
+			FAIL_IF(!a);
 			if (n64_insn->rt == 0) {
 				// OR Rd, Rs, $0 moves a 64-bit value. (Rs == $0 stores 0.)
-				llvm::Value* a = load_n64_int64(builder, values, n64_insn->rs);
-				FAIL_IF(!a);
 				queue_n64_int64(values, n64_insn->rd, a);
 			} else {
-				llvm::Value* a = load_n64_int64(builder, values, n64_insn->rs);
 				llvm::Value* b = load_n64_int64(builder, values, n64_insn->rt);
-				FAIL_IF(!a || !b);
+				FAIL_IF(!b);
 				llvm::Value* result64 = builder.CreateOr(a, b);
 				FAIL_IF(!result64);
 				queue_n64_int64(values, n64_insn->rd, result64);
@@ -465,24 +392,14 @@ bool llvm_ir_for_insn(llvm::IRBuilder<>& builder, value_store& values, const n64
 		}
 
 		case N64_OP_SLT:
-		{
-			llvm::Value* a = load_n64_int64(builder, values, n64_insn->rs);
-			llvm::Value* b = load_n64_int64(builder, values, n64_insn->rt);
-			FAIL_IF(!a || !b);
-			llvm::Value* cmp_bit = builder.CreateICmpSLT(a, b);
-			FAIL_IF(!cmp_bit);
-			llvm::Value* result64 = builder.CreateZExt(cmp_bit, builder.getInt64Ty());
-			FAIL_IF(!result64);
-			queue_n64_int64(values, n64_insn->rd, result64);
-			break;
-		}
-
 		case N64_OP_SLTU:
 		{
 			llvm::Value* a = load_n64_int64(builder, values, n64_insn->rs);
 			llvm::Value* b = load_n64_int64(builder, values, n64_insn->rt);
 			FAIL_IF(!a || !b);
-			llvm::Value* cmp_bit = builder.CreateICmpULT(a, b);
+			llvm::Value* cmp_bit = n64_insn->opcode == N64_OP_SLT
+				? builder.CreateICmpSLT(a, b) /* signed */
+				: builder.CreateICmpULT(a, b) /* unsigned */;
 			FAIL_IF(!cmp_bit);
 			llvm::Value* result64 = builder.CreateZExt(cmp_bit, builder.getInt64Ty());
 			FAIL_IF(!result64);
@@ -566,20 +483,13 @@ bool llvm_ir_for_insn(llvm::IRBuilder<>& builder, value_store& values, const n64
 		}
 
 		case N64_OP_ORI:
-		{
-			llvm::Value* a = load_n64_int64(builder, values, n64_insn->rs);
-			FAIL_IF(!a);
-			llvm::Value* result64 = builder.CreateOr(a, n64_insn->imm);
-			FAIL_IF(!result64);
-			queue_n64_int64(values, n64_insn->rt, result64);
-			break;
-		}
-
 		case N64_OP_XORI:
 		{
 			llvm::Value* a = load_n64_int64(builder, values, n64_insn->rs);
 			FAIL_IF(!a);
-			llvm::Value* result64 = builder.CreateXor(a, n64_insn->imm);
+			llvm::Value* result64 = n64_insn->opcode == N64_OP_ORI
+				? builder.CreateOr(a, n64_insn->imm)
+				: builder.CreateXor(a, n64_insn->imm);
 			FAIL_IF(!result64);
 			queue_n64_int64(values, n64_insn->rt, result64);
 			break;
@@ -705,49 +615,23 @@ bool llvm_ir_for_insn(llvm::IRBuilder<>& builder, value_store& values, const n64
 		}
 
 		case N64_OP_MULT:
-		{
-			// This is a 32-bit by 32-bit signed multiplication with 64-bit
-			// result. The upper and lower 32 bits go into HI and LO, both
-			// sign-extended to 64 bits independently from each other.
-			llvm::Value* a32 = load_n64_int32(builder, values, n64_insn->rs);
-			llvm::Value* b32 = load_n64_int32(builder, values, n64_insn->rt);
-			FAIL_IF(!a32 || !b32);
-			// In LLVM, 64-bit operands are required in order to get a 64-bit
-			// result. So we sign-extend the 32-bit truncated operands back to
-			// 64-bit.
-			llvm::Value* a64 = builder.CreateSExt(a32, builder.getInt64Ty());
-			llvm::Value* b64 = builder.CreateSExt(b32, builder.getInt64Ty());
-			FAIL_IF(!a64 || !b64);
-			// We know the result will not overflow in any way.
-			llvm::Value* result64 = builder.CreateMul(a64, b64, "",
-				true /* nuw (no unsigned wrap) */, true /* nsw (signed) */);
-			// Split the result.
-			FAIL_IF(!result64);
-			// HI: Arithmetic shift right by 32 performs sign-extension.
-			llvm::Value* hi64 = builder.CreateAShr(result64, 32);
-			// LO: Truncate to 32 bits then sign-extend the result.
-			llvm::Value* lo32 = builder.CreateTrunc(result64, builder.getInt32Ty());
-			FAIL_IF(!lo32);
-			llvm::Value* lo64 = builder.CreateSExt(lo32, builder.getInt64Ty());
-			FAIL_IF(!hi64 || !lo64);
-			queue_n64_hi(values, hi64);
-			queue_n64_lo(values, lo64);
-			break;
-		}
-
 		case N64_OP_MULTU:
 		{
-			// This is a 32-bit by 32-bit unsigned multiplication with 64-bit
-			// result. The upper and lower 32 bits go into HI and LO, both
-			// sign-extended to 64 bits independently from each other.
+			// This is a 32-bit by 32-bit (un)signed multiplication with
+			// 64-bit result. The upper and lower 32 bits go into HI and LO,
+			// both sign-extended to 64 bits independently from each other.
 			llvm::Value* a32 = load_n64_int32(builder, values, n64_insn->rs);
 			llvm::Value* b32 = load_n64_int32(builder, values, n64_insn->rt);
 			FAIL_IF(!a32 || !b32);
 			// In LLVM, 64-bit operands are required in order to get a 64-bit
-			// result. So we zero-extend the 32-bit truncated operands back to
-			// 64-bit.
-			llvm::Value* a64 = builder.CreateZExt(a32, builder.getInt64Ty());
-			llvm::Value* b64 = builder.CreateZExt(b32, builder.getInt64Ty());
+			// result. So we sign-extend, or zero-extend, the 32-bit truncated
+			// operands back to 64-bit.
+			llvm::Value* a64 = n64_insn->opcode == N64_OP_MULT
+				? builder.CreateSExt(a32, builder.getInt64Ty())
+				: builder.CreateZExt(a32, builder.getInt64Ty());
+			llvm::Value* b64 = n64_insn->opcode == N64_OP_MULT
+				? builder.CreateSExt(b32, builder.getInt64Ty())
+				: builder.CreateZExt(b32, builder.getInt64Ty());
 			FAIL_IF(!a64 || !b64);
 			// We know the result will not overflow in any way.
 			llvm::Value* result64 = builder.CreateMul(a64, b64, "",
