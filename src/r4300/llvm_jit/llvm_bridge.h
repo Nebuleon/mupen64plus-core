@@ -127,8 +127,17 @@ extern llvm::GlobalVariable* llvm_readmemb;
 extern llvm::GlobalVariable* llvm_readmemh;
 extern llvm::GlobalVariable* llvm_readmem;
 extern llvm::GlobalVariable* llvm_readmemd;
+extern llvm::GlobalVariable* llvm_writememb;
+extern llvm::GlobalVariable* llvm_writememh;
+extern llvm::GlobalVariable* llvm_writemem;
+extern llvm::GlobalVariable* llvm_writememd;
 extern llvm::GlobalVariable* llvm_address;
 extern llvm::GlobalVariable* llvm_rdword;
+extern llvm::GlobalVariable* llvm_cpu_byte;
+extern llvm::GlobalVariable* llvm_hword;
+extern llvm::GlobalVariable* llvm_word;
+extern llvm::GlobalVariable* llvm_dword;
+extern llvm::GlobalVariable* llvm_invalid_code;
 extern llvm::GlobalVariable* llvm_skip_jump;
 #endif /* __cplusplus */
 

@@ -242,15 +242,24 @@ void fill_emit_flags(n64_insn_t* insn)
 			insn->emit_flags = INSTRUCTION_HAS_EMITTERS;
 			break;
 		case N64_OP_SB:
+			insn->emit_flags = INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_SH:
+			insn->emit_flags = INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_SWL:
+			break;
 		case N64_OP_SW:
+			insn->emit_flags = INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_SDL:
 		case N64_OP_SDR:
 		case N64_OP_SWR:
 		case N64_OP_SC:
 		case N64_OP_SCD:
+			break;
 		case N64_OP_SD:
+			insn->emit_flags = INSTRUCTION_HAS_EMITTERS;
 			break;
 		case N64_OP_MFHI:
 			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT
@@ -278,8 +287,16 @@ void fill_emit_flags(n64_insn_t* insn)
 			break;
 		case N64_OP_DIV:
 		case N64_OP_DIVU:
+			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT;
+			break;
 		case N64_OP_DMULT:
+			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT
+				| INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_DMULTU:
+			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT
+				| INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_DDIV:
 		case N64_OP_DDIVU:
 			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT;

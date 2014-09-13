@@ -25,6 +25,7 @@
 #include "llvm_bridge.h"
 #include "../r4300.h" /* get declaration for PC, reg, hi, lo, skip_jump */
 #include "memory/memory.h" /* get declaration for address, readmem... */
+#include "../cached_interp.h" /* get declaration for invalid_code */
 
 llvm::GlobalVariable* llvm_reg;
 llvm::GlobalVariable* llvm_hi;
@@ -34,8 +35,17 @@ llvm::GlobalVariable* llvm_readmemb;
 llvm::GlobalVariable* llvm_readmemh;
 llvm::GlobalVariable* llvm_readmem;
 llvm::GlobalVariable* llvm_readmemd;
+llvm::GlobalVariable* llvm_writememb;
+llvm::GlobalVariable* llvm_writememh;
+llvm::GlobalVariable* llvm_writemem;
+llvm::GlobalVariable* llvm_writememd;
 llvm::GlobalVariable* llvm_address;
 llvm::GlobalVariable* llvm_rdword;
+llvm::GlobalVariable* llvm_cpu_byte;
+llvm::GlobalVariable* llvm_hword;
+llvm::GlobalVariable* llvm_word;
+llvm::GlobalVariable* llvm_dword;
+llvm::GlobalVariable* llvm_invalid_code;
 llvm::GlobalVariable* llvm_skip_jump;
 
 int llvm_init_globals()
@@ -95,6 +105,26 @@ int llvm_init_globals()
 		false, llvm::GlobalValue::ExternalLinkage, NULL, "readmemd"
 	);
 	if (!llvm_readmemd) return -1;
+	llvm_writememb = new llvm::GlobalVariable(
+		*code_cache, accessor_array_type,
+		false, llvm::GlobalValue::ExternalLinkage, NULL, "writememb"
+	);
+	if (!llvm_writememb) return -1;
+	llvm_writememh = new llvm::GlobalVariable(
+		*code_cache, accessor_array_type,
+		false, llvm::GlobalValue::ExternalLinkage, NULL, "writememh"
+	);
+	if (!llvm_writememh) return -1;
+	llvm_writemem = new llvm::GlobalVariable(
+		*code_cache, accessor_array_type,
+		false, llvm::GlobalValue::ExternalLinkage, NULL, "writemem"
+	);
+	if (!llvm_writemem) return -1;
+	llvm_writememd = new llvm::GlobalVariable(
+		*code_cache, accessor_array_type,
+		false, llvm::GlobalValue::ExternalLinkage, NULL, "writememd"
+	);
+	if (!llvm_writememd) return -1;
 	llvm_address = new llvm::GlobalVariable(
 		*code_cache,
 		/* (2) Type: i32 */
@@ -109,6 +139,41 @@ int llvm_init_globals()
 		false, llvm::GlobalValue::ExternalLinkage, NULL, "rdword"
 	);
 	if (!llvm_rdword) return -1;
+	llvm_cpu_byte = new llvm::GlobalVariable(
+		*code_cache,
+		/* (2) Type: i8 */
+		llvm::Type::getInt8Ty(*context),
+		false, llvm::GlobalValue::ExternalLinkage, NULL, "cpu_byte"
+	);
+	if (!llvm_cpu_byte) return -1;
+	llvm_hword = new llvm::GlobalVariable(
+		*code_cache,
+		/* (2) Type: i16 */
+		llvm::Type::getInt16Ty(*context),
+		false, llvm::GlobalValue::ExternalLinkage, NULL, "hword"
+	);
+	if (!llvm_hword) return -1;
+	llvm_word = new llvm::GlobalVariable(
+		*code_cache,
+		/* (2) Type: i32 */
+		llvm::Type::getInt32Ty(*context),
+		false, llvm::GlobalValue::ExternalLinkage, NULL, "word"
+	);
+	if (!llvm_word) return -1;
+	llvm_dword = new llvm::GlobalVariable(
+		*code_cache,
+		/* (2) Type: i64 */
+		llvm::Type::getInt64Ty(*context),
+		false, llvm::GlobalValue::ExternalLinkage, NULL, "dword"
+	);
+	if (!llvm_dword) return -1;
+	llvm_invalid_code = new llvm::GlobalVariable(
+		*code_cache,
+		/* Type: [1048576 x i8] */
+		llvm::ArrayType::get(llvm::Type::getInt8Ty(*context), 0x100000),
+		false, llvm::GlobalValue::ExternalLinkage, NULL, "invalid_code"
+	);
+	if (!llvm_invalid_code) return -1;
 	llvm_skip_jump = new llvm::GlobalVariable(
 		*code_cache,
 		/* (2) Type: i32 */
@@ -125,8 +190,17 @@ int llvm_init_globals()
 	engine->updateGlobalMapping(llvm_readmemh, readmemh);
 	engine->updateGlobalMapping(llvm_readmem, readmem);
 	engine->updateGlobalMapping(llvm_readmemd, readmemd);
+	engine->updateGlobalMapping(llvm_writememb, writememb);
+	engine->updateGlobalMapping(llvm_writememh, writememh);
+	engine->updateGlobalMapping(llvm_writemem, writemem);
+	engine->updateGlobalMapping(llvm_writememd, writememd);
 	engine->updateGlobalMapping(llvm_address, &address);
 	engine->updateGlobalMapping(llvm_rdword, &rdword);
+	engine->updateGlobalMapping(llvm_cpu_byte, &cpu_byte);
+	engine->updateGlobalMapping(llvm_hword, &hword);
+	engine->updateGlobalMapping(llvm_word, &word);
+	engine->updateGlobalMapping(llvm_dword, &dword);
+	engine->updateGlobalMapping(llvm_invalid_code, invalid_code);
 	engine->updateGlobalMapping(llvm_skip_jump, &skip_jump);
 	return 0;
 }
@@ -141,10 +215,22 @@ void llvm_destroy_globals()
 	llvm_readmemh->eraseFromParent();
 	llvm_readmem->eraseFromParent();
 	llvm_readmemd->eraseFromParent();
+	llvm_writememb->eraseFromParent();
+	llvm_writememh->eraseFromParent();
+	llvm_writemem->eraseFromParent();
+	llvm_writememd->eraseFromParent();
 	llvm_address->eraseFromParent();
 	llvm_rdword->eraseFromParent();
+	llvm_cpu_byte->eraseFromParent();
+	llvm_hword->eraseFromParent();
+	llvm_word->eraseFromParent();
+	llvm_dword->eraseFromParent();
+	llvm_invalid_code->eraseFromParent();
 	llvm_skip_jump->eraseFromParent();
 	llvm_reg = llvm_hi = llvm_lo = llvm_PC =
 		llvm_readmemb = llvm_readmemh = llvm_readmem = llvm_readmemd =
-		llvm_address = llvm_rdword = llvm_skip_jump = NULL;
+		llvm_writememb = llvm_writememh = llvm_writemem = llvm_writememd =
+		llvm_address = llvm_rdword =
+		llvm_cpu_byte = llvm_hword = llvm_word = llvm_dword =
+		llvm_invalid_code = llvm_skip_jump = NULL;
 }

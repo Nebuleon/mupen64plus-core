@@ -636,6 +636,136 @@ bool llvm_ir_for_insn(llvm::IRBuilder<>& builder, value_store& values, const n64
 			break;
 		}
 
+		case N64_OP_SB:
+		case N64_OP_SH:
+		case N64_OP_SW:
+		case N64_OP_SD:
+		{
+			// Calculate the (N64) address to be stored to.
+			llvm::Value* rs32 = load_n64_int32(builder, values, n64_insn->rs);
+			FAIL_IF(!rs32);
+			llvm::Value* address = rs32;
+			if (n64_insn->imm != 0) {
+				address = builder.CreateAdd(rs32, builder.getInt32(n64_insn->imm));
+				FAIL_IF(!address);
+			}
+
+			// Mark the page containing the address as having been rewritten.
+			// If it contained N64 code, that will invalidate the native code
+			// or cached interpretation done for thae N64 code the next time
+			// something jumps to it.
+			llvm::Value* address_hi20 = builder.CreateLShr(address, 12);
+			FAIL_IF(!address_hi20);
+			std::vector<llvm::Value*> icGepArgs;
+			icGepArgs.push_back(builder.getInt32(0));
+			icGepArgs.push_back(address_hi20);
+			llvm::Value* invalid_code_addr = builder.CreateInBoundsGEP(
+				llvm_invalid_code, icGepArgs);
+			FAIL_IF(!invalid_code_addr);
+			FAIL_IF(!builder.CreateStore(builder.getInt8(1), invalid_code_addr));
+
+			// Prepare for the call to C.
+			// Set a global variable to the value to be written.
+			switch (n64_insn->opcode) {
+				case N64_OP_SB:
+				{
+					// Here the value of 'cpu_byte' will be stored.
+					llvm::Value* rt64 = load_n64_int64(builder, values, n64_insn->rt);
+					FAIL_IF(!rt64);
+					llvm::Value* rt8 = builder.CreateTrunc(rt64, builder.getInt8Ty());
+					FAIL_IF(!builder.CreateStore(rt8, llvm_cpu_byte));
+					break;
+				}
+				case N64_OP_SH:
+				{
+					// Here the value of 'hword' will be stored.
+					llvm::Value* rt64 = load_n64_int64(builder, values, n64_insn->rt);
+					FAIL_IF(!rt64);
+					llvm::Value* rt16 = builder.CreateTrunc(rt64, builder.getInt16Ty());
+					FAIL_IF(!builder.CreateStore(rt16, llvm_hword));
+					break;
+				}
+				case N64_OP_SW:
+				{
+					// Here the value of 'word' will be stored.
+					llvm::Value* rt32 = load_n64_int32(builder, values, n64_insn->rt);
+					FAIL_IF(!rt32);
+					FAIL_IF(!builder.CreateStore(rt32, llvm_word));
+					break;
+				}
+				case N64_OP_SD:
+				{
+					// Here the value of 'dword' will be stored.
+					llvm::Value* rt64 = load_n64_int64(builder, values, n64_insn->rt);
+					FAIL_IF(!rt64);
+					FAIL_IF(!builder.CreateStore(rt64, llvm_dword));
+					break;
+				}
+				default: break;
+			}
+			FAIL_IF(!store_queued_regs(builder, values));
+			// Set the global variable 'address' to the address to be stored.
+			FAIL_IF(!builder.CreateStore(address, llvm_address));
+			// Grab the memory accessor function to be used.
+			llvm::Value* address_hi16 = builder.CreateLShr(address, 16);
+			FAIL_IF(!address_hi16);
+			std::vector<llvm::Value*> gepArgs;
+			gepArgs.push_back(builder.getInt32(0));
+			gepArgs.push_back(address_hi16);
+
+			// Calculate where the function pointer is.
+			llvm::Value* accessor_addr = NULL;
+			switch (n64_insn->opcode) {
+				case N64_OP_SB:
+					accessor_addr = builder.CreateInBoundsGEP(llvm_writememb, gepArgs);
+					break;
+				case N64_OP_SH:
+					accessor_addr = builder.CreateInBoundsGEP(llvm_writememh, gepArgs);
+					break;
+				case N64_OP_SW:
+					accessor_addr = builder.CreateInBoundsGEP(llvm_writemem, gepArgs);
+					break;
+				case N64_OP_SD:
+					accessor_addr = builder.CreateInBoundsGEP(llvm_writememd, gepArgs);
+					break;
+				default: break;
+			}
+			FAIL_IF(!accessor_addr);
+
+			// Then load it.
+			llvm::Value* accessor = builder.CreateLoad(accessor_addr);
+			// If an N64 exception occurs, the Program Counter needs to have
+			// been updated to point past the store.
+			FAIL_IF(!set_pc(builder, n64_insn->runtime + 1));
+			// Call C.
+			FAIL_IF(!builder.CreateCall(accessor));
+
+			// C will have modified the value of 'address' to be 0 if an N64
+			// exception occurred. Reload it and compare.
+			llvm::Value* new_address = builder.CreateLoad(llvm_address);
+			FAIL_IF(!new_address);
+			llvm::Value* new_address_is_0 = builder.CreateICmpEQ(
+				new_address, builder.getInt32(0));
+			llvm::BasicBlock* if_zero = llvm::BasicBlock::Create(
+				*context, "store_exception", builder.GetInsertBlock()->getParent());
+			llvm::BasicBlock* if_nonzero = llvm::BasicBlock::Create(
+				*context, "store_normal", builder.GetInsertBlock()->getParent());
+			FAIL_IF(!new_address_is_0 || !if_zero || !if_nonzero);
+			// Create a conditional branch that will go to our exiting block
+			// (if_zero) if an N64 exception occurred, otherwise if_nonzero.
+			FAIL_IF(!builder.CreateCondBr(new_address_is_0, if_zero, if_nonzero));
+			builder.SetInsertPoint(if_zero);
+
+			// if_zero: skip_jump = 0; (in case the store is in a delay slot)
+			// return;
+			FAIL_IF(!builder.CreateStore(builder.getInt32(0), llvm_skip_jump));
+			FAIL_IF(!builder.CreateRetVoid());
+
+			// if_nonzero:
+			builder.SetInsertPoint(if_nonzero);
+			break;
+		}
+
 		/* ... */
 
 		case N64_OP_MFHI:
@@ -700,6 +830,39 @@ bool llvm_ir_for_insn(llvm::IRBuilder<>& builder, value_store& values, const n64
 			llvm::Value* lo32 = builder.CreateTrunc(result64, builder.getInt32Ty());
 			FAIL_IF(!lo32);
 			llvm::Value* lo64 = builder.CreateSExt(lo32, builder.getInt64Ty());
+			FAIL_IF(!hi64 || !lo64);
+			queue_n64_hi(values, hi64);
+			queue_n64_lo(values, lo64);
+			break;
+		}
+
+		/* ... */
+
+		case N64_OP_DMULT:
+		case N64_OP_DMULTU:
+		{
+			// This is a 64-bit by 64-bit (un)signed multiplication with
+			// 128-bit result. The upper and lower 64 bits go into HI and LO.
+			llvm::Value* a64 = load_n64_int64(builder, values, n64_insn->rs);
+			llvm::Value* b64 = load_n64_int64(builder, values, n64_insn->rt);
+			FAIL_IF(!a64 || !b64);
+			// In LLVM, 128-bit operands are required in order to get a
+			// 128-bit result. So we sign-extend, or zero-extend, the 64-bit
+			// truncated operands back to 128-bit.
+			llvm::Value* a128 = n64_insn->opcode == N64_OP_DMULT
+				? builder.CreateSExt(a64, llvm::Type::getIntNTy(*context, 128))
+				: builder.CreateZExt(a64, llvm::Type::getIntNTy(*context, 128));
+			llvm::Value* b128 = n64_insn->opcode == N64_OP_DMULT
+				? builder.CreateSExt(b64, llvm::Type::getIntNTy(*context, 128))
+				: builder.CreateZExt(b64, llvm::Type::getIntNTy(*context, 128));
+			FAIL_IF(!a128 || !b128);
+			// We know the result will not overflow in any way.
+			llvm::Value* result128 = builder.CreateMul(a128, b128, "",
+				true /* nuw (no unsigned wrap) */, true /* nsw (signed) */);
+			// Split the result.
+			FAIL_IF(!result128);
+			llvm::Value* hi64 = builder.CreateAShr(result128, 64);
+			llvm::Value* lo64 = builder.CreateTrunc(result128, builder.getInt64Ty());
 			FAIL_IF(!hi64 || !lo64);
 			queue_n64_hi(values, hi64);
 			queue_n64_lo(values, lo64);
