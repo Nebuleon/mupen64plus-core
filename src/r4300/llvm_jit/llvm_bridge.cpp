@@ -133,6 +133,9 @@ op_func_t llvm_function_emit(void* fn_ptr)
 	// Optimise the IR of the function.
 	if (optimizer)
 		optimizer->run(*(llvm::Function*) fn_ptr);
+#ifdef LJ_SHOW_LLVM_IR
+	((llvm::Function*) fn_ptr)->dump();
+#endif
 
 #ifdef LJ_VERIFY_LLVM_IR
 	if (llvm::verifyFunction(*(llvm::Function*) fn_ptr, raw_cout)) {
