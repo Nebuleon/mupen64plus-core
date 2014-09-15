@@ -796,7 +796,9 @@ bool llvm_ir_for_insn(llvm::IRBuilder<>& builder, FunctionData& fnData, const n6
 				true /* nuw (no unsigned wrap) */, true /* nsw (signed) */);
 			// Split the result.
 			FAIL_IF(!result128);
-			llvm::Value* hi64 = builder.CreateAShr(result128, 64);
+			llvm::Value* hi128 = builder.CreateAShr(result128, 64);
+			FAIL_IF(!hi128);
+			llvm::Value* hi64 = builder.CreateTrunc(hi128, builder.getInt64Ty());
 			llvm::Value* lo64 = builder.CreateTrunc(result128, builder.getInt64Ty());
 			FAIL_IF(!hi64 || !lo64);
 			FAIL_IF(!fnData.storeHI(builder, hi64));
