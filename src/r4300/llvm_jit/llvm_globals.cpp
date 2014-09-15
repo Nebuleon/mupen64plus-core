@@ -181,7 +181,9 @@ int llvm_init_globals()
 		false, llvm::GlobalValue::ExternalLinkage, NULL, "skip_jump"
 	);
 	if (!llvm_skip_jump) return -1;
+#ifdef LJ_SHOW_LLVM_IR
 	code_cache->dump();
+#endif
 	engine->updateGlobalMapping(llvm_reg, reg);
 	engine->updateGlobalMapping(llvm_hi, &hi);
 	engine->updateGlobalMapping(llvm_lo, &lo);
