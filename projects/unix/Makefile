@@ -487,6 +487,7 @@ ifneq ($(DYNAREC), )
       $(SRCDIR)/r4300/llvm_jit/driver.c \
       $(SRCDIR)/r4300/llvm_jit/emitflags.c \
       $(SRCDIR)/r4300/llvm_jit/n64ops.c \
+      $(SRCDIR)/r4300/llvm_jit/llvm_aux.cpp \
       $(SRCDIR)/r4300/llvm_jit/llvm_bridge.cpp \
       $(SRCDIR)/r4300/llvm_jit/llvm_emit.cpp \
       $(SRCDIR)/r4300/llvm_jit/llvm_globals.cpp

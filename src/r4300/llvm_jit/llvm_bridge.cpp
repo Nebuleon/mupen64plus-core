@@ -38,6 +38,7 @@
 #include "llvm/IR/Module.h" /* Module */
 
 #include "llvm_bridge.h"
+#include "llvm_aux.hpp"
 
 llvm::LLVMContext* context; // Modules and types are created in this context.
 llvm::Module* code_cache; // All functions will be emitted into this.
@@ -105,11 +106,11 @@ int llvm_init()
 	if (!optimizer) {
 		printf("LLVM Warning: Failed to create the LLVM FunctionPassManager to optimise code\n");
 	}
-	// Instruction combining must be performed first to reduce the number
-	// of instructions that need to be read during further optimisations.
-	optimizer->add(llvm::createInstructionCombiningPass());
-	// Reduce the number of identical operations performed multiple times
-	// on the same operands.
+	// The 'promote memory to register' pass will make SSA out of 'alloca'
+	// code, by replacing all users of each 'alloca' by a new unnamed register
+	// reference and inserting 'phi' nodes where needed.
+	optimizer->add(llvm::createPromoteMemoryToRegisterPass());
+	// Global value numbering will eliminate duplicate computations.
 	optimizer->add(llvm::createGVNPass());
 	optimizer->doInitialization();
 
@@ -118,14 +119,9 @@ int llvm_init()
 
 void* llvm_function_create(uint32_t addr)
 {
-	char name[9];
-	sprintf(name, "%.8X", addr);
-	std::string sName(name);
-
-	llvm::Function* result = llvm::Function::Create(
-		void_to_void, llvm::Function::WeakAnyLinkage, sName, code_cache);
-	llvm::BasicBlock::Create(*context, "entry", result);
-	return result;
+	return llvm::Function::Create(
+		void_to_void, llvm::Function::WeakAnyLinkage, nameForAddr(addr),
+		code_cache);
 }
 
 op_func_t llvm_function_emit(void* fn_ptr)
