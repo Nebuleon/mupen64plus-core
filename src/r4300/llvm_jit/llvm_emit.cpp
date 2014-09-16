@@ -26,6 +26,7 @@
 #endif
 
 #include "llvm/IR/IRBuilder.h" /* IRBuilder<> */
+#include "llvm/IR/MDBuilder.h" /* MDBuilder */
 #include "llvm/IR/Module.h" /* complete Function type */
 
 #include "llvm_bridge.h"
@@ -499,7 +500,9 @@ bool llvm_ir_for_insn(llvm::IRBuilder<>& builder, FunctionData& fnData, const n6
 			FAIL_IF(!new_address_is_0 || !if_zero || !if_nonzero);
 			// Create a conditional branch that will go to our exiting block
 			// (if_zero) if an N64 exception occurred, otherwise if_nonzero.
-			FAIL_IF(!builder.CreateCondBr(new_address_is_0, if_zero, if_nonzero));
+			// Having no exception is far more likely than having one.
+			FAIL_IF(!builder.CreateCondBr(new_address_is_0, if_zero, if_nonzero,
+				llvm::MDBuilder(*context).createBranchWeights(1, 1024)));
 			builder.SetInsertPoint(if_zero);
 
 			// if_zero: skip_jump = 0; (in case the load is in a delay slot)
@@ -675,7 +678,9 @@ bool llvm_ir_for_insn(llvm::IRBuilder<>& builder, FunctionData& fnData, const n6
 			FAIL_IF(!new_address_is_0 || !if_zero || !if_nonzero);
 			// Create a conditional branch that will go to our exiting block
 			// (if_zero) if an N64 exception occurred, otherwise if_nonzero.
-			FAIL_IF(!builder.CreateCondBr(new_address_is_0, if_zero, if_nonzero));
+			// Having no exception is far more likely than having one.
+			FAIL_IF(!builder.CreateCondBr(new_address_is_0, if_zero, if_nonzero,
+				llvm::MDBuilder(*context).createBranchWeights(1, 1024)));
 			builder.SetInsertPoint(if_zero);
 
 			// if_zero: skip_jump = 0; (in case the store is in a delay slot)
