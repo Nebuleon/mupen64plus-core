@@ -42,7 +42,8 @@ bool llvm_ir_for_insn(llvm::IRBuilder<>& builder, FunctionData& fnData, const n6
 		case N64_OP_NOP:
 		case N64_OP_CACHE:
 		case N64_OP_SYNC:
-			FAIL_IF(!fnData.branchN64(builder, n64_insn->addr + 4));
+			if (!delay_slot)
+				FAIL_IF(!fnData.branchN64(builder, n64_insn->addr + 4));
 			break;
 
 		case N64_OP_SLL:
@@ -687,7 +688,7 @@ bool llvm_ir_for_insn(llvm::IRBuilder<>& builder, FunctionData& fnData, const n6
 			// return;
 			if (delay_slot)
 				FAIL_IF(!builder.CreateStore(builder.getInt32(0), llvm_skip_jump));
-			FAIL_IF(!builder.CreateRetVoid());
+			FAIL_IF(!fnData.branchToStore(builder));
 
 			// if_nonzero:
 			builder.SetInsertPoint(if_nonzero);
