@@ -184,4 +184,4 @@ private:
 	bool allocLO();
 };
 
-std::string nameForAddr(uint32_t addr);
+std::string nameForAddr(uint32_t addr, bool delay_slot = false);

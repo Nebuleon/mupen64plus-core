@@ -493,10 +493,12 @@ bool llvm_ir_for_insn(llvm::IRBuilder<>& builder, FunctionData& fnData, const n6
 			llvm::Value* new_address_is_0 = builder.CreateICmpEQ(
 				new_address, builder.getInt32(0));
 			llvm::BasicBlock* if_zero = llvm::BasicBlock::Create(
-				*context, llvm::Twine(nameForAddr(n64_insn->addr)).concat("_Except"),
+				*context,
+				llvm::Twine(nameForAddr(n64_insn->addr, delay_slot)).concat("_Except"),
 				builder.GetInsertBlock()->getParent());
 			llvm::BasicBlock* if_nonzero = llvm::BasicBlock::Create(
-				*context, llvm::Twine(nameForAddr(n64_insn->addr)).concat("_Normal"),
+				*context,
+				llvm::Twine(nameForAddr(n64_insn->addr, delay_slot)).concat("_Normal"),
 				builder.GetInsertBlock()->getParent());
 			FAIL_IF(!new_address_is_0 || !if_zero || !if_nonzero);
 			// Create a conditional branch that will go to our exiting block
@@ -671,10 +673,12 @@ bool llvm_ir_for_insn(llvm::IRBuilder<>& builder, FunctionData& fnData, const n6
 			llvm::Value* new_address_is_0 = builder.CreateICmpEQ(
 				new_address, builder.getInt32(0));
 			llvm::BasicBlock* if_zero = llvm::BasicBlock::Create(
-				*context, llvm::Twine(nameForAddr(n64_insn->addr)).concat("_Except"),
+				*context,
+				llvm::Twine(nameForAddr(n64_insn->addr, delay_slot)).concat("_Except"),
 				builder.GetInsertBlock()->getParent());
 			llvm::BasicBlock* if_nonzero = llvm::BasicBlock::Create(
-				*context, llvm::Twine(nameForAddr(n64_insn->addr)).concat("_Normal"),
+				*context,
+				llvm::Twine(nameForAddr(n64_insn->addr, delay_slot)).concat("_Normal"),
 				builder.GetInsertBlock()->getParent());
 			FAIL_IF(!new_address_is_0 || !if_zero || !if_nonzero);
 			// Create a conditional branch that will go to our exiting block

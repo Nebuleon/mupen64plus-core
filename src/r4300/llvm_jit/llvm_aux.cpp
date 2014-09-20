@@ -336,9 +336,11 @@ FunctionData::~FunctionData()
 	free(this->opcode_blocks);
 }
 
-std::string nameForAddr(uint32_t addr)
+std::string nameForAddr(uint32_t addr, bool delay_slot)
 {
-	char name[9];
+	char name[12];
 	sprintf(name, "%.8X", addr);
+	if (delay_slot)
+		strcpy(&name[8], "_DS");
 	return std::string(name);
 }
