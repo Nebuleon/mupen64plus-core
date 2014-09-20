@@ -23,6 +23,7 @@
 #include <stdio.h> /* sprintf */
 
 #include "llvm/IR/IRBuilder.h" /* IRBuilder<> */
+#include "llvm/IR/MDBuilder.h" /* MDBuilder */
 
 #include "llvm_bridge.h"
 #include "llvm_aux.hpp"
@@ -43,6 +44,7 @@ FunctionData::FunctionData(const n64_insn_t* n64_insns, uint32_t n64_insn_count)
 	, n64_hi_written(false)
 	, n64_lo_has_alloca(false)
 	, n64_lo_written(false)
+	, can_interrupt(false)
 {
 }
 
@@ -314,6 +316,22 @@ bool FunctionData::storeLO(llvm::IRBuilder<>& builder, llvm::Value* value)
 	return builder.CreateStore(value, this->n64_lo_alloca) != NULL;
 }
 
+bool FunctionData::setInterrupt(llvm::IRBuilder<>& builder)
+{
+	if (!this->can_interrupt) {
+		llvm::IRBuilder<> loadBuilder(this->load_block);
+		this->interrupt_alloca = loadBuilder.CreateAlloca(loadBuilder.getInt1Ty(),
+			NULL,
+			"interrupt"
+		);
+		if (!this->interrupt_alloca) return false;
+		if (!loadBuilder.CreateStore(loadBuilder.getInt1(0), this->interrupt_alloca)) return false;
+		this->can_interrupt = true;
+	}
+
+	return builder.CreateStore(builder.getInt1(1), this->interrupt_alloca) != NULL;
+}
+
 bool FunctionData::end()
 {
 	// End of load block goes to the first opcode.
@@ -323,10 +341,40 @@ bool FunctionData::end()
 	// Fallthrough block needs to be attached to the function.
 	fn->getBasicBlockList().push_back(this->opcode_blocks[this->n64_insn_count]);
 
-	// Store block needs to be given 'ret void' and attached to the function.
-	llvm::IRBuilder<> storeBuilder(this->store_block);
-	if (!storeBuilder.CreateRetVoid()) return false;
+	// Store block needs to be attached to the function.
 	fn->getBasicBlockList().push_back(store_block);
+	llvm::IRBuilder<> storeBuilder(this->store_block);
+	if (can_interrupt) {
+		// If there can be interrupts triggered by this function,
+		// the store block needs to conditionally go to a block that will call
+		// gen_interupt:
+		llvm::BasicBlock* if_interrupt = llvm::BasicBlock::Create(
+			*context, "exit_Interrupt", fn);
+		llvm::BasicBlock* if_no_interrupt = llvm::BasicBlock::Create(
+			*context, "exit_Normal", fn);
+		if (!if_interrupt || !if_no_interrupt) return false;
+
+		llvm::Value* interrupt_alloca_val = storeBuilder.CreateLoad(this->interrupt_alloca);
+		if (!interrupt_alloca_val) return false;
+		if (!storeBuilder.CreateCondBr(interrupt_alloca_val, if_interrupt, if_no_interrupt,
+			llvm::MDBuilder(*context).createBranchWeights(1, 256)))
+			return false;
+
+		// if_interrupt:
+		storeBuilder.SetInsertPoint(if_interrupt);
+		// tail call void @gen_interupt()
+		llvm::CallInst* call = storeBuilder.CreateCall(llvm_gen_interupt);
+		if (!call) return false;
+		call->setTailCall();
+		// ret void
+		if (!storeBuilder.CreateRetVoid()) return false;
+
+		// if_no_interrupt:
+		storeBuilder.SetInsertPoint(if_no_interrupt);
+	}
+	// This 'ret void' will go into either the store block or the NoInterrupt
+	// block.
+	if (!storeBuilder.CreateRetVoid()) return false;
 
 	return true;
 }

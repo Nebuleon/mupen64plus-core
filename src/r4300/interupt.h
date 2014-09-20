@@ -33,7 +33,13 @@ extern unsigned int next_vi;
 // (e.g. in the middle of an instruction)
 extern int interupt_unsafe_state;
 
+#ifdef __cplusplus
+extern "C" { /* needs to be addressed by name in the LLVM JIT */
+#endif
 void gen_interupt(void);
+#ifdef __cplusplus
+}
+#endif
 void check_interupt(void);
 
 void translate_event_queue(unsigned int base);

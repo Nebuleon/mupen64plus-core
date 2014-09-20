@@ -73,6 +73,13 @@ private:
 	bool n64_lo_written;
 	llvm::Value* n64_lo_alloca;
 
+	// true if at least one of the instructions in the current function can
+	// trigger an interrupt.
+	bool can_interrupt;
+	// Set to 1 if an interrupt is required after storing registers.
+	// Initialised to 0.
+	llvm::Value* interrupt_alloca;
+
 public:
 	FunctionData(const n64_insn_t* n64_insns, uint32_t n64_insn_count);
 	~FunctionData();
@@ -101,6 +108,10 @@ public:
 	// exceptions.
 	// Returns false if there was insufficient memory.
 	bool branchToStore(llvm::IRBuilder<>& builder);
+
+	// Sets the interrupt pending flag so that the store block will service
+	// an interrupt.
+	bool setInterrupt(llvm::IRBuilder<>& builder);
 
 	// Emits an update of the Program Counter.
 	// Returns false if there was insufficient memory.

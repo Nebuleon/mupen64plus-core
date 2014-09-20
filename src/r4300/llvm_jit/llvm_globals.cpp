@@ -24,12 +24,15 @@
 
 #include "llvm_bridge.h"
 #include "../r4300.h" /* get declaration for PC, reg, hi, lo, skip_jump */
+#include "../cp0.h" /* get declaration for g_cp0_regs */
 #include "memory/memory.h" /* get declaration for address, readmem... */
 #include "../cached_interp.h" /* get declaration for invalid_code */
+#include "../interupt.h" /* get declaration for gen_interupt */
 
 llvm::GlobalVariable* llvm_reg;
 llvm::GlobalVariable* llvm_hi;
 llvm::GlobalVariable* llvm_lo;
+llvm::GlobalVariable* llvm_g_cp0_regs;
 llvm::GlobalVariable* llvm_PC;
 llvm::GlobalVariable* llvm_readmemb;
 llvm::GlobalVariable* llvm_readmemh;
@@ -47,6 +50,10 @@ llvm::GlobalVariable* llvm_word;
 llvm::GlobalVariable* llvm_dword;
 llvm::GlobalVariable* llvm_invalid_code;
 llvm::GlobalVariable* llvm_skip_jump;
+llvm::GlobalVariable* llvm_last_addr;
+llvm::GlobalVariable* llvm_next_interupt;
+llvm::GlobalVariable* llvm_delay_slot;
+llvm::Function* llvm_gen_interupt;
 
 int llvm_init_globals()
 {
@@ -74,6 +81,13 @@ int llvm_init_globals()
 		false, llvm::GlobalValue::ExternalLinkage, NULL, "lo"
 	);
 	if (!llvm_lo) return -1;
+	llvm_g_cp0_regs = new llvm::GlobalVariable(
+		*code_cache,
+		/* (2) Type: [32 x i32] */
+		llvm::ArrayType::get(llvm::Type::getInt32Ty(*context), CP0_REGS_COUNT),
+		false, llvm::GlobalValue::ExternalLinkage, NULL, "g_cp0_regs"
+	);
+	if (!llvm_g_cp0_regs) return -1;
 	llvm_PC = new llvm::GlobalVariable(
 		*code_cache,
 		/* (2) Type: i8* */
@@ -181,12 +195,38 @@ int llvm_init_globals()
 		false, llvm::GlobalValue::ExternalLinkage, NULL, "skip_jump"
 	);
 	if (!llvm_skip_jump) return -1;
+	llvm_last_addr = new llvm::GlobalVariable(
+		*code_cache,
+		/* (2) Type: i32 */
+		llvm::Type::getInt32Ty(*context),
+		false, llvm::GlobalValue::ExternalLinkage, NULL, "last_addr"
+	);
+	if (!llvm_last_addr) return -1;
+	llvm_next_interupt = new llvm::GlobalVariable(
+		*code_cache,
+		/* (2) Type: i32 */
+		llvm::Type::getInt32Ty(*context),
+		false, llvm::GlobalValue::ExternalLinkage, NULL, "next_interupt"
+	);
+	if (!llvm_next_interupt) return -1;
+	llvm_delay_slot = new llvm::GlobalVariable(
+		*code_cache,
+		/* (2) Type: i32 */
+		llvm::Type::getInt32Ty(*context),
+		false, llvm::GlobalValue::ExternalLinkage, NULL, "delay_slot"
+	);
+	if (!llvm_delay_slot) return -1;
+	llvm_gen_interupt = llvm::Function::Create(
+		void_to_void, llvm::Function::ExternalLinkage, "gen_interupt",
+		code_cache);
+	if (!llvm_gen_interupt) return -1;
 #ifdef LJ_SHOW_LLVM_IR
 	code_cache->dump();
 #endif
 	engine->updateGlobalMapping(llvm_reg, reg);
 	engine->updateGlobalMapping(llvm_hi, &hi);
 	engine->updateGlobalMapping(llvm_lo, &lo);
+	engine->updateGlobalMapping(llvm_g_cp0_regs, g_cp0_regs);
 	engine->updateGlobalMapping(llvm_PC, &PC);
 	engine->updateGlobalMapping(llvm_readmemb, readmemb);
 	engine->updateGlobalMapping(llvm_readmemh, readmemh);
@@ -204,6 +244,10 @@ int llvm_init_globals()
 	engine->updateGlobalMapping(llvm_dword, &dword);
 	engine->updateGlobalMapping(llvm_invalid_code, invalid_code);
 	engine->updateGlobalMapping(llvm_skip_jump, &skip_jump);
+	engine->updateGlobalMapping(llvm_last_addr, &last_addr);
+	engine->updateGlobalMapping(llvm_next_interupt, &next_interupt);
+	engine->updateGlobalMapping(llvm_delay_slot, &delay_slot);
+	engine->updateGlobalMapping(llvm_gen_interupt, (void*) gen_interupt);
 	return 0;
 }
 
@@ -212,6 +256,7 @@ void llvm_destroy_globals()
 	llvm_reg->eraseFromParent();
 	llvm_hi->eraseFromParent();
 	llvm_lo->eraseFromParent();
+	llvm_g_cp0_regs->eraseFromParent();
 	llvm_PC->eraseFromParent();
 	llvm_readmemb->eraseFromParent();
 	llvm_readmemh->eraseFromParent();
@@ -229,10 +274,16 @@ void llvm_destroy_globals()
 	llvm_dword->eraseFromParent();
 	llvm_invalid_code->eraseFromParent();
 	llvm_skip_jump->eraseFromParent();
-	llvm_reg = llvm_hi = llvm_lo = llvm_PC =
+	llvm_last_addr->eraseFromParent();
+	llvm_next_interupt->eraseFromParent();
+	llvm_delay_slot->eraseFromParent();
+	llvm_gen_interupt->eraseFromParent();
+	llvm_reg = llvm_hi = llvm_g_cp0_regs = llvm_lo = llvm_PC =
 		llvm_readmemb = llvm_readmemh = llvm_readmem = llvm_readmemd =
 		llvm_writememb = llvm_writememh = llvm_writemem = llvm_writememd =
 		llvm_address = llvm_rdword =
 		llvm_cpu_byte = llvm_hword = llvm_word = llvm_dword =
-		llvm_invalid_code = llvm_skip_jump = NULL;
+		llvm_invalid_code = llvm_skip_jump =
+		llvm_last_addr = llvm_next_interupt = llvm_delay_slot = NULL;
+	llvm_gen_interupt = NULL;
 }

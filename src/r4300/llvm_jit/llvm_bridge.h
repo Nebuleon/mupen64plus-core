@@ -119,9 +119,12 @@ extern llvm::LLVMContext* context;
 extern llvm::Module* code_cache;
 extern llvm::ExecutionEngine* engine;
 
+extern llvm::FunctionType* void_to_void;
+
 extern llvm::GlobalVariable* llvm_reg; /* GlobalVariable representing 'reg' */
 extern llvm::GlobalVariable* llvm_hi; /* GlobalVariable representing 'hi' */
 extern llvm::GlobalVariable* llvm_lo; /* GlobalVariable representing 'lo' */
+extern llvm::GlobalVariable* llvm_g_cp0_regs;
 extern llvm::GlobalVariable* llvm_PC; /* GlobalVariable representing 'PC' */
 extern llvm::GlobalVariable* llvm_readmemb;
 extern llvm::GlobalVariable* llvm_readmemh;
@@ -139,6 +142,10 @@ extern llvm::GlobalVariable* llvm_word;
 extern llvm::GlobalVariable* llvm_dword;
 extern llvm::GlobalVariable* llvm_invalid_code;
 extern llvm::GlobalVariable* llvm_skip_jump;
+extern llvm::GlobalVariable* llvm_last_addr;
+extern llvm::GlobalVariable* llvm_next_interupt;
+extern llvm::GlobalVariable* llvm_delay_slot;
+extern llvm::Function* llvm_gen_interupt;
 #endif /* __cplusplus */
 
 #endif /* !__LLVM_JIT_BRIDGE_H__ */
