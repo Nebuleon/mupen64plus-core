@@ -36,13 +36,12 @@ FunctionData::FunctionData(const n64_insn_t* n64_insns, uint32_t n64_insn_count)
 	, n64_insn_count(n64_insn_count)
 	, store_block(NULL)
 	, n64_int_has_alloca(0)
-	, n64_int_read(0)
 	, n64_int_written(0)
+	, n64_cp0_has_alloca(0)
+	, n64_cp0_written(0)
 	, n64_hi_has_alloca(false)
-	, n64_hi_read(false)
 	, n64_hi_written(false)
 	, n64_lo_has_alloca(false)
-	, n64_lo_read(false)
 	, n64_lo_written(false)
 {
 }
@@ -112,6 +111,31 @@ bool FunctionData::setPC(llvm::IRBuilder<>& builder, precomp_instr* newPC)
 	return true;
 }
 
+bool FunctionData::allocN64Int(unsigned int src_reg)
+{
+	if (!(this->n64_int_has_alloca & (UINT32_C(1) << src_reg))) {
+		llvm::IRBuilder<> loadBuilder(this->load_block);
+		this->n64_int_alloca[src_reg] = loadBuilder.CreateAlloca(loadBuilder.getInt64Ty(),
+			NULL,
+			llvm::Twine("reg").concat(llvm::Twine(src_reg))
+		);
+		if (!this->n64_int_alloca[src_reg]) return false;
+
+		/* Generate the address of &reg[src_ptr], type i64. */
+		llvm::Value* src_reg_ptr = loadBuilder.CreateConstInBoundsGEP2_32(llvm_reg, 0, src_reg);
+		if (!src_reg_ptr) return false;
+		/* Load the 64-bit register. */
+		llvm::Value* value = loadBuilder.CreateLoad(src_reg_ptr,
+			llvm::Twine("reg").concat(llvm::Twine(src_reg)).concat("Init")
+		);
+		if (!value) return false;
+		/* Store its initial value into our alloca. */
+		if (!loadBuilder.CreateStore(value, this->n64_int_alloca[src_reg])) return false;
+		this->n64_int_has_alloca |= UINT32_C(1) << src_reg;
+	}
+	return true;
+}
+
 llvm::Value* FunctionData::loadN64Int(llvm::IRBuilder<>& builder, unsigned int src_reg, unsigned int bits)
 {
 	if (src_reg == 0)
@@ -120,29 +144,7 @@ llvm::Value* FunctionData::loadN64Int(llvm::IRBuilder<>& builder, unsigned int s
 			llvm::APInt(bits, 0)
 		);
 
-	llvm::IRBuilder<> loadBuilder(this->load_block);
-	if (!(this->n64_int_has_alloca & (UINT32_C(1) << src_reg))) {
-		this->n64_int_alloca[src_reg] = loadBuilder.CreateAlloca(loadBuilder.getInt64Ty(),
-			NULL,
-			llvm::Twine("reg").concat(llvm::Twine(src_reg))
-		);
-		if (!this->n64_int_alloca[src_reg]) return NULL;
-		this->n64_int_has_alloca |= UINT32_C(1) << src_reg;
-	}
-
-	if (!(this->n64_int_read & (UINT32_C(1) << src_reg))) {
-		/* Generate the address of &reg[src_ptr], type i64. */
-		llvm::Value* src_reg_ptr = loadBuilder.CreateConstInBoundsGEP2_32(llvm_reg, 0, src_reg);
-		if (!src_reg_ptr) return NULL;
-		/* Load the 64-bit register. */
-		llvm::Value* value = loadBuilder.CreateLoad(src_reg_ptr,
-			llvm::Twine("reg").concat(llvm::Twine(src_reg)).concat("Init")
-		);
-		if (!value) return NULL;
-		/* Store its initial value into our alloca. */
-		if (!loadBuilder.CreateStore(value, this->n64_int_alloca[src_reg])) return NULL;
-		this->n64_int_read |= UINT32_C(1) << src_reg;
-	}
+	if (!this->allocN64Int(src_reg)) return NULL;
 
 	llvm::Value* result64 = builder.CreateLoad(this->n64_int_alloca[src_reg]);
 	if (!result64) return NULL;
@@ -156,15 +158,7 @@ bool FunctionData::storeN64Int(llvm::IRBuilder<>& builder, unsigned int dst_reg,
 	if (dst_reg == 0)
 		return true; // Stored successfully, just with no operation
 
-	if (!(this->n64_int_has_alloca & (UINT32_C(1) << dst_reg))) {
-		llvm::IRBuilder<> loadBuilder(this->load_block);
-		this->n64_int_alloca[dst_reg] = loadBuilder.CreateAlloca(loadBuilder.getInt64Ty(),
-			NULL,
-			llvm::Twine("reg").concat(llvm::Twine(dst_reg))
-		);
-		if (!this->n64_int_alloca[dst_reg]) return false;
-		this->n64_int_has_alloca |= UINT32_C(1) << dst_reg;
-	}
+	if (!this->allocN64Int(dst_reg)) return false;
 
 	if (!(this->n64_int_written & (UINT32_C(1) << dst_reg))) {
 		llvm::IRBuilder<> storeBuilder(this->store_block);
@@ -187,7 +181,60 @@ bool FunctionData::storeN64Int(llvm::IRBuilder<>& builder, unsigned int dst_reg,
 	return builder.CreateStore(value64, this->n64_int_alloca[dst_reg]) != NULL;
 }
 
-llvm::Value* FunctionData::loadHI(llvm::IRBuilder<>& builder)
+bool FunctionData::allocN64Cop0(unsigned int src_reg)
+{
+	if (!(this->n64_cp0_has_alloca & (UINT32_C(1) << src_reg))) {
+		llvm::IRBuilder<> loadBuilder(this->load_block);
+		this->n64_cp0_alloca[src_reg] = loadBuilder.CreateAlloca(loadBuilder.getInt32Ty(),
+			NULL,
+			llvm::Twine("cp0reg").concat(llvm::Twine(src_reg))
+		);
+		if (!this->n64_cp0_alloca[src_reg]) return false;
+
+		/* Generate the address of &g_cp0_regs[src_ptr], type i64. */
+		llvm::Value* src_reg_ptr = loadBuilder.CreateConstInBoundsGEP2_32(llvm_g_cp0_regs, 0, src_reg);
+		if (!src_reg_ptr) return false;
+		/* Load the 32-bit register. */
+		llvm::Value* value = loadBuilder.CreateLoad(src_reg_ptr,
+			llvm::Twine("cp0reg").concat(llvm::Twine(src_reg)).concat("Init")
+		);
+		if (!value) return false;
+		/* Store its initial value into our alloca. */
+		if (!loadBuilder.CreateStore(value, this->n64_cp0_alloca[src_reg])) return false;
+		this->n64_cp0_has_alloca |= UINT32_C(1) << src_reg;
+	}
+	return true;
+}
+
+llvm::Value* FunctionData::loadN64Cop0(llvm::IRBuilder<>& builder, unsigned int src_reg)
+{
+	if (!this->allocN64Cop0(src_reg)) return NULL;
+
+	return builder.CreateLoad(this->n64_cp0_alloca[src_reg]);
+}
+
+bool FunctionData::storeN64Cop0(llvm::IRBuilder<>& builder, unsigned int dst_reg, llvm::Value* value)
+{
+	if (!this->allocN64Cop0(dst_reg)) return false;
+
+	if (!(this->n64_cp0_written & (UINT32_C(1) << dst_reg))) {
+		llvm::IRBuilder<> storeBuilder(this->store_block);
+		llvm::Value* alloca_value = storeBuilder.CreateLoad(this->n64_cp0_alloca[dst_reg],
+			llvm::Twine("cp0reg").concat(llvm::Twine(dst_reg)).concat("Val")
+		);
+		if (!alloca_value) return false;
+		/* Generate the address of &g_cp0_regs[dst_ptr], type i32. */
+		llvm::Value* dst_reg_ptr = storeBuilder.CreateConstInBoundsGEP2_32(llvm_g_cp0_regs, 0, dst_reg);
+		if (!dst_reg_ptr) return false;
+		/* Store the 32-bit register from the alloca. */
+		if (!storeBuilder.CreateStore(alloca_value, dst_reg_ptr)) return false;
+		this->n64_cp0_written |= UINT32_C(1) << dst_reg;
+	}
+
+	return builder.CreateStore(value, this->n64_cp0_alloca[dst_reg]) != NULL;
+}
+
+bool FunctionData::allocHI()
 {
 	llvm::IRBuilder<> loadBuilder(this->load_block);
 	if (!this->n64_hi_has_alloca) {
@@ -195,31 +242,26 @@ llvm::Value* FunctionData::loadHI(llvm::IRBuilder<>& builder)
 			NULL,
 			"hi"
 		);
-		if (!this->n64_hi_alloca) return NULL;
+		if (!this->n64_hi_alloca) return false;
+
+		llvm::Value* value = loadBuilder.CreateLoad(llvm_hi, "hiInit");
+		if (!value) return false;
+		if (!loadBuilder.CreateStore(value, this->n64_hi_alloca)) return false;
 		this->n64_hi_has_alloca = true;
 	}
+	return true;
+}
 
-	if (!this->n64_hi_read) {
-		llvm::Value* value = loadBuilder.CreateLoad(llvm_hi, "hiInit");
-		if (!value) return NULL;
-		if (!loadBuilder.CreateStore(value, this->n64_hi_alloca)) return NULL;
-		this->n64_hi_read = true;
-	}
+llvm::Value* FunctionData::loadHI(llvm::IRBuilder<>& builder)
+{
+	if (!this->allocHI()) return NULL;
 
 	return builder.CreateLoad(this->n64_hi_alloca);
 }
 
 bool FunctionData::storeHI(llvm::IRBuilder<>& builder, llvm::Value* value)
 {
-	if (!this->n64_hi_has_alloca) {
-		llvm::IRBuilder<> loadBuilder(this->load_block);
-		this->n64_hi_alloca = loadBuilder.CreateAlloca(loadBuilder.getInt64Ty(),
-			NULL,
-			"hi"
-		);
-		if (!this->n64_hi_alloca) return false;
-		this->n64_hi_has_alloca = true;
-	}
+	if (!this->allocHI()) return false;
 
 	if (!this->n64_hi_written) {
 		llvm::IRBuilder<> storeBuilder(this->store_block);
@@ -232,7 +274,7 @@ bool FunctionData::storeHI(llvm::IRBuilder<>& builder, llvm::Value* value)
 	return builder.CreateStore(value, this->n64_hi_alloca) != NULL;
 }
 
-llvm::Value* FunctionData::loadLO(llvm::IRBuilder<>& builder)
+bool FunctionData::allocLO()
 {
 	llvm::IRBuilder<> loadBuilder(this->load_block);
 	if (!this->n64_lo_has_alloca) {
@@ -240,31 +282,26 @@ llvm::Value* FunctionData::loadLO(llvm::IRBuilder<>& builder)
 			NULL,
 			"lo"
 		);
-		if (!this->n64_lo_alloca) return NULL;
+		if (!this->n64_lo_alloca) return false;
+
+		llvm::Value* value = loadBuilder.CreateLoad(llvm_lo, "loInit");
+		if (!value) return false;
+		if (!loadBuilder.CreateStore(value, this->n64_lo_alloca)) return false;
 		this->n64_lo_has_alloca = true;
 	}
+	return true;
+}
 
-	if (!this->n64_lo_read) {
-		llvm::Value* value = loadBuilder.CreateLoad(llvm_lo, "loInit");
-		if (!value) return NULL;
-		if (!loadBuilder.CreateStore(value, this->n64_lo_alloca)) return NULL;
-		this->n64_lo_read = true;
-	}
+llvm::Value* FunctionData::loadLO(llvm::IRBuilder<>& builder)
+{
+	if (!this->allocLO()) return NULL;
 
 	return builder.CreateLoad(this->n64_lo_alloca);
 }
 
 bool FunctionData::storeLO(llvm::IRBuilder<>& builder, llvm::Value* value)
 {
-	if (!this->n64_lo_has_alloca) {
-		llvm::IRBuilder<> loadBuilder(this->load_block);
-		this->n64_lo_alloca = loadBuilder.CreateAlloca(loadBuilder.getInt64Ty(),
-			NULL,
-			"lo"
-		);
-		if (!this->n64_lo_alloca) return false;
-		this->n64_lo_has_alloca = true;
-	}
+	if (!this->allocLO()) return false;
 
 	if (!this->n64_lo_written) {
 		llvm::IRBuilder<> storeBuilder(this->store_block);

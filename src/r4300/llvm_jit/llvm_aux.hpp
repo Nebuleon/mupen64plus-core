@@ -58,17 +58,18 @@ private:
 	llvm::BasicBlock* store_block;
 
 	uint32_t n64_int_has_alloca; // bit N is set if n64_int_alloca[N] is valid
-	uint32_t n64_int_read; // bit N is set if reg[N] was loaded in header
 	uint32_t n64_int_written; // bit N is set if reg[N] was stored in footer
 	llvm::Value* n64_int_alloca[32]; // 'alloca i64' instructions for GPRs
 
+	uint32_t n64_cp0_has_alloca; // bit N is set if n64_cp0_alloca[N] is valid
+	uint32_t n64_cp0_written; // bit N is set if CP0 N was stored in footer
+	llvm::Value* n64_cp0_alloca[32]; // 'alloca i64' instructions for GPRs
+
 	bool n64_hi_has_alloca;
-	bool n64_hi_read;
 	bool n64_hi_written;
 	llvm::Value* n64_hi_alloca;
 
 	bool n64_lo_has_alloca;
-	bool n64_lo_read;
 	bool n64_lo_written;
 	llvm::Value* n64_lo_alloca;
 
@@ -120,6 +121,18 @@ public:
 	// Returns false if there was insufficient memory.
 	bool storeN64Int(llvm::IRBuilder<>& builder, unsigned int dst_reg, llvm::Value* value, unsigned int bits = 64);
 
+	// Requests loading the value of one of the N64 Coprocessor 0 registers.
+	// An alloca is made and loaded with the initial value of the register in
+	// the load block if needed. The loaded value is always 32 bits.
+	// Returns NULL if there was insufficient memory.
+	llvm::Value* loadN64Cop0(llvm::IRBuilder<>& builder, unsigned int src_reg);
+
+	// Requests storing a value into one of the N64 Coprocessor 0 registers.
+	// An alloca is made in the load block and written back in the store block
+	// if needed. The stored value must be 32-bit.
+	// Returns false if there was insufficient memory.
+	bool storeN64Cop0(llvm::IRBuilder<>& builder, unsigned int dst_reg, llvm::Value* value);
+
 	// Requests loading the value of the multiplier unit's HI register.
 	// An alloca is made and loaded with the initial value of HI in the load
 	// block if needed.
@@ -149,6 +162,26 @@ public:
 	// load block their terminator instructions as required by LLVM IR.
 	// Returns false if there was insufficient memory.
 	bool end();
+
+private:
+	// Creates an alloca for an N64 GPR, filled with its current value.
+	// Returns false if there was insufficient memory.
+	bool allocN64Int(unsigned int src_reg);
+
+	// Creates an alloca for an N64 Coprocessor 0 register, filled with its
+	// current value.
+	// Returns false if there was insufficient memory.
+	bool allocN64Cop0(unsigned int src_reg);
+
+	// Creates an alloca for the multiplier unit's HI register, filled with
+	// its current value.
+	// Returns false if there was insufficient memory.
+	bool allocHI();
+
+	// Creates an alloca for the multiplier unit's LO register, filled with
+	// its current value.
+	// Returns false if there was insufficient memory.
+	bool allocLO();
 };
 
 std::string nameForAddr(uint32_t addr);
