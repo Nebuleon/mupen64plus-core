@@ -1010,6 +1010,114 @@ bool llvm_ir_for_insn(llvm::IRBuilder<>& builder, FunctionData& fnData, const n6
 			break;
 		}
 
+		case N64_OP_BLTZL:
+		case N64_OP_BGEZL:
+		case N64_OP_BLEZL:
+		case N64_OP_BGTZL:
+		case N64_OP_BNEL:
+		case N64_OP_BEQL:
+		{
+			llvm::Value* cond = NULL;
+			switch (n64_insn->opcode) {
+				case N64_OP_BLTZL:
+				{
+					llvm::Value* a = fnData.loadN64Int(builder, n64_insn->rs);
+					FAIL_IF(!a);
+					cond = builder.CreateICmpSLT(a, builder.getInt64(0));
+					break;
+				}
+				case N64_OP_BGEZL:
+				{
+					llvm::Value* a = fnData.loadN64Int(builder, n64_insn->rs);
+					FAIL_IF(!a);
+					cond = builder.CreateICmpSGE(a, builder.getInt64(0));
+					break;
+				}
+				case N64_OP_BLEZL:
+				{
+					llvm::Value* a = fnData.loadN64Int(builder, n64_insn->rs);
+					FAIL_IF(!a);
+					cond = builder.CreateICmpSLE(a, builder.getInt64(0));
+					break;
+				}
+				case N64_OP_BGTZL:
+				{
+					llvm::Value* a = fnData.loadN64Int(builder, n64_insn->rs);
+					FAIL_IF(!a);
+					cond = builder.CreateICmpSGT(a, builder.getInt64(0));
+					break;
+				}
+				case N64_OP_BNEL:
+				{
+					llvm::Value* a = fnData.loadN64Int(builder, n64_insn->rs);
+					llvm::Value* b = fnData.loadN64Int(builder, n64_insn->rt);
+					FAIL_IF(!a || !b);
+					cond = builder.CreateICmpNE(a, b);
+					break;
+				}
+				case N64_OP_BEQL:
+				{
+					llvm::Value* a = fnData.loadN64Int(builder, n64_insn->rs);
+					llvm::Value* b = fnData.loadN64Int(builder, n64_insn->rt);
+					FAIL_IF(!a || !b);
+					cond = builder.CreateICmpEQ(a, b);
+					break;
+				}
+				default: break;
+			}
+			FAIL_IF(!cond);
+
+			llvm::BasicBlock* if_true = llvm::BasicBlock::Create(
+				*context, llvm::Twine(nameForAddr(n64_insn->addr)).concat("_True"),
+				builder.GetInsertBlock()->getParent());
+			llvm::BasicBlock* if_false = llvm::BasicBlock::Create(
+				*context, llvm::Twine(nameForAddr(n64_insn->addr)).concat("_False"));
+			FAIL_IF(!if_true || !if_false);
+			// If true, the uninterrupted run of instructions will end, so
+			// update last_addr, check for interrupts and go to the target.
+			// If false, go to PC + 2, which is guaranteed to be inside this
+			// block or to lead to the "fallthrough block" (see llvm_aux.cpp).
+			// The True path is more likely, as asserted by the MIPS code.
+			// But we don't know how much more likely it is. Let's say 8x.
+			FAIL_IF(!builder.CreateCondBr(cond, if_true, if_false,
+				llvm::MDBuilder(*context).createBranchWeights(8, 1)));
+
+			// if_true:
+			builder.SetInsertPoint(if_true);
+			// Branch Likely opcodes only execute their delay slot if they
+			// succeed. So do that here.
+			FAIL_IF(!llvm_ir_for_delay_slot(builder, fnData, n64_insn + 1));
+			//   Count += cycles for [last_addr .. compile-time PC + 8]
+			FAIL_IF(!llvm_ir_for_update_count(builder, fnData, n64_insn->addr + 8));
+			//   last_addr = compile-time branch target
+			FAIL_IF(!llvm_ir_for_update_last_addr(builder, fnData, n64_insn->target));
+			//   if interrupt:
+			//     set global PC variable; flag pending interrupt; goto store
+			FAIL_IF(!llvm_ir_for_interrupt_check(builder, fnData, n64_insn,
+				n64_insn->runtime + (((int32_t) n64_insn->target - (int32_t) n64_insn->addr) / 4)
+			));
+			//   else:
+			//     go to a basic block in this function
+			//     -or-
+			//     PC = compile-time branch target precomp_instr*; goto store
+			llvm::BasicBlock* target_block = fnData.getOpcodeBlock(n64_insn->target);
+			if (target_block) {
+				FAIL_IF(!builder.CreateBr(target_block));
+			} else {
+				FAIL_IF(!fnData.setPC(builder,
+					n64_insn->runtime + (((int32_t) n64_insn->target - (int32_t) n64_insn->addr) / 4)));
+				FAIL_IF(!fnData.branchToStore(builder));
+			}
+
+			// if_false:
+			builder.GetInsertBlock()->getParent()->getBasicBlockList().push_back(
+				if_false);
+			builder.SetInsertPoint(if_false);
+			//   goto compile-time PC + 8
+			FAIL_IF(!fnData.branchN64(builder, n64_insn->addr + 8));
+			break;
+		}
+
 		default:
 			assert(false && "Opcode without an implementation requested in llvm_ir_for_insn");
 			return false;

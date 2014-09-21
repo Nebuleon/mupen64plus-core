@@ -332,7 +332,10 @@ void fill_emit_flags(n64_insn_t* insn)
 			break;
 		case N64_OP_BLTZ_OUT:
 		case N64_OP_BLTZ_IDLE:
+			break;
 		case N64_OP_BLTZL:
+			insn->emit_flags = INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_BLTZL_OUT:
 		case N64_OP_BLTZL_IDLE:
 			break;
@@ -341,7 +344,10 @@ void fill_emit_flags(n64_insn_t* insn)
 			break;
 		case N64_OP_BGEZ_OUT:
 		case N64_OP_BGEZ_IDLE:
+			break;
 		case N64_OP_BGEZL:
+			insn->emit_flags = INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_BGEZL_OUT:
 		case N64_OP_BGEZL_IDLE:
 		case N64_OP_BLTZAL:
@@ -362,7 +368,10 @@ void fill_emit_flags(n64_insn_t* insn)
 			break;
 		case N64_OP_BLEZ_OUT:
 		case N64_OP_BLEZ_IDLE:
+			break;
 		case N64_OP_BLEZL:
+			insn->emit_flags = INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_BLEZL_OUT:
 		case N64_OP_BLEZL_IDLE:
 			break;
@@ -371,7 +380,10 @@ void fill_emit_flags(n64_insn_t* insn)
 			break;
 		case N64_OP_BGTZ_OUT:
 		case N64_OP_BGTZ_IDLE:
+			break;
 		case N64_OP_BGTZL:
+			insn->emit_flags = INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_BGTZL_OUT:
 		case N64_OP_BGTZL_IDLE:
 			break;
@@ -380,7 +392,10 @@ void fill_emit_flags(n64_insn_t* insn)
 			break;
 		case N64_OP_BEQ_OUT:
 		case N64_OP_BEQ_IDLE:
+			break;
 		case N64_OP_BEQL:
+			insn->emit_flags = INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_BEQL_OUT:
 		case N64_OP_BEQL_IDLE:
 			break;
@@ -389,7 +404,10 @@ void fill_emit_flags(n64_insn_t* insn)
 			break;
 		case N64_OP_BNE_OUT:
 		case N64_OP_BNE_IDLE:
+			break;
 		case N64_OP_BNEL:
+			insn->emit_flags = INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_BNEL_OUT:
 		case N64_OP_BNEL_IDLE:
 			break;
