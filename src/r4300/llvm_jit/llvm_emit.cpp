@@ -939,7 +939,9 @@ bool llvm_ir_for_insn(llvm::IRBuilder<>& builder, FunctionData& fnData, const n6
 		/* ... */
 
 		case N64_OP_BLTZ:
+		case N64_OP_BLTZAL:
 		case N64_OP_BGEZ:
+		case N64_OP_BGEZAL:
 		case N64_OP_BLEZ:
 		case N64_OP_BGTZ:
 		case N64_OP_BNE:
@@ -947,6 +949,10 @@ bool llvm_ir_for_insn(llvm::IRBuilder<>& builder, FunctionData& fnData, const n6
 		{
 			llvm::Value* cond = NULL;
 			switch (n64_insn->opcode) {
+				case N64_OP_BLTZAL:
+					FAIL_IF(!fnData.storeN64Int(builder, 31,
+						builder.getInt64((int64_t) ((int32_t) n64_insn->addr + 8))));
+					/* fall through / 'but also...' */
 				case N64_OP_BLTZ:
 				{
 					llvm::Value* a = fnData.loadN64Int(builder, n64_insn->rs);
@@ -954,6 +960,10 @@ bool llvm_ir_for_insn(llvm::IRBuilder<>& builder, FunctionData& fnData, const n6
 					cond = builder.CreateICmpSLT(a, builder.getInt64(0));
 					break;
 				}
+				case N64_OP_BGEZAL:
+					FAIL_IF(!fnData.storeN64Int(builder, 31,
+						builder.getInt64((int64_t) ((int32_t) n64_insn->addr + 8))));
+					/* fall through / 'but also...' */
 				case N64_OP_BGEZ:
 				{
 					llvm::Value* a = fnData.loadN64Int(builder, n64_insn->rs);
@@ -1045,7 +1055,9 @@ bool llvm_ir_for_insn(llvm::IRBuilder<>& builder, FunctionData& fnData, const n6
 		}
 
 		case N64_OP_BLTZL:
+		case N64_OP_BLTZALL:
 		case N64_OP_BGEZL:
+		case N64_OP_BGEZALL:
 		case N64_OP_BLEZL:
 		case N64_OP_BGTZL:
 		case N64_OP_BNEL:
@@ -1053,6 +1065,10 @@ bool llvm_ir_for_insn(llvm::IRBuilder<>& builder, FunctionData& fnData, const n6
 		{
 			llvm::Value* cond = NULL;
 			switch (n64_insn->opcode) {
+				case N64_OP_BLTZALL:
+					FAIL_IF(!fnData.storeN64Int(builder, 31,
+						builder.getInt64((int64_t) ((int32_t) n64_insn->addr + 8))));
+					/* fall through / 'but also...' */
 				case N64_OP_BLTZL:
 				{
 					llvm::Value* a = fnData.loadN64Int(builder, n64_insn->rs);
@@ -1060,6 +1076,10 @@ bool llvm_ir_for_insn(llvm::IRBuilder<>& builder, FunctionData& fnData, const n6
 					cond = builder.CreateICmpSLT(a, builder.getInt64(0));
 					break;
 				}
+				case N64_OP_BGEZALL:
+					FAIL_IF(!fnData.storeN64Int(builder, 31,
+						builder.getInt64((int64_t) ((int32_t) n64_insn->addr + 8))));
+					/* fall through / 'but also...' */
 				case N64_OP_BGEZL:
 				{
 					llvm::Value* a = fnData.loadN64Int(builder, n64_insn->rs);
