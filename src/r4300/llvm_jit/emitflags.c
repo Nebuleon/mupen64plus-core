@@ -302,9 +302,14 @@ void fill_emit_flags(n64_insn_t* insn)
 			insn->emit_flags = INSTRUCTION_IGNORES_DELAY_SLOT;
 			break;
 		case N64_OP_J:
+			insn->emit_flags = INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_J_OUT:
 		case N64_OP_J_IDLE:
+			break;
 		case N64_OP_JAL:
+			insn->emit_flags = INSTRUCTION_HAS_EMITTERS;
+			break;
 		case N64_OP_JAL_OUT:
 		case N64_OP_JAL_IDLE:
 		case N64_OP_JR:

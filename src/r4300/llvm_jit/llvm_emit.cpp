@@ -904,6 +904,40 @@ bool llvm_ir_for_insn(llvm::IRBuilder<>& builder, FunctionData& fnData, const n6
 
 		/* ... */
 
+		case N64_OP_J:
+		case N64_OP_JAL:
+		{
+			if (n64_insn->opcode == N64_OP_JAL) {
+				FAIL_IF(!fnData.storeN64Int(builder, 31,
+					builder.getInt64((int64_t) ((int32_t) n64_insn->addr + 8))));
+			}
+			FAIL_IF(!llvm_ir_for_delay_slot(builder, fnData, n64_insn + 1));
+			// Count += cycles for [last_addr .. compile-time PC + 8]
+			FAIL_IF(!llvm_ir_for_update_count(builder, fnData, n64_insn->addr + 8));
+			// last_addr = compile-time branch target
+			FAIL_IF(!llvm_ir_for_update_last_addr(builder, fnData, n64_insn->target));
+			// if interrupt:
+			//   set global PC variable; flag pending interrupt; goto store
+			FAIL_IF(!llvm_ir_for_interrupt_check(builder, fnData, n64_insn,
+				n64_insn->runtime + (((int32_t) n64_insn->target - (int32_t) n64_insn->addr) / 4)
+			));
+			// else:
+			//   go to a basic block in this function
+			//   -or-
+			//   PC = compile-time branch target precomp_instr*; goto store
+			llvm::BasicBlock* target_block = fnData.getOpcodeBlock(n64_insn->target);
+			if (target_block) {
+				FAIL_IF(!builder.CreateBr(target_block));
+			} else {
+				FAIL_IF(!fnData.setPC(builder,
+					n64_insn->runtime + (((int32_t) n64_insn->target - (int32_t) n64_insn->addr) / 4)));
+				FAIL_IF(!fnData.branchToStore(builder));
+			}
+			break;
+		}
+
+		/* ... */
+
 		case N64_OP_BLTZ:
 		case N64_OP_BGEZ:
 		case N64_OP_BLEZ:
