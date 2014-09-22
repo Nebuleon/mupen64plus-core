@@ -29,6 +29,7 @@
 #include "llvm/IR/MDBuilder.h" /* MDBuilder */
 #include "llvm/IR/Module.h" /* complete Function type */
 
+#include "branches.h"
 #include "emitflags.h"
 #include "llvm_bridge.h"
 #include "llvm_aux.hpp"
@@ -1186,13 +1187,17 @@ bool llvm_ir_for_n64(void* fn_ptr, const n64_insn_t* n64_insns, uint32_t n64_ins
 	FunctionData fnData(n64_insns, n64_insn_count);
 	FAIL_IF(!fnData.begin(fn));
 
-	for (unsigned int i = 0; i < n64_insn_count; i++) {
+	for (uint32_t i = 0; i < n64_insn_count; i++) {
 		const n64_insn_t* n64_insn = &n64_insns[i];
 		llvm::BasicBlock* block = fnData.getOpcodeBlock(n64_insn->addr);
 		fn->getBasicBlockList().push_back(block);
 		builder.SetInsertPoint(block);
 #ifdef LJ_SHOW_COMPILATION
-		printf(" %s", get_n64_op_name(n64_insns[i].opcode));
+		if (i > 0 && ((n64_insn - 1)->branch_flags & BRANCH_DELAY_SLOT)) {
+			printf("/%s", get_n64_op_name(n64_insn->opcode));
+		} else {
+			printf(" %s", get_n64_op_name(n64_insn->opcode));
+		}
 #endif
 		FAIL_IF(!llvm_ir_for_insn(builder, fnData, n64_insn, false /* delay slot */));
 	}
