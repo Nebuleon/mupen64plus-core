@@ -61,11 +61,12 @@ bool llvm_ir_for_update_count(llvm::IRBuilder<>& builder, FunctionData& fnData, 
 	// b) last_addr
 	llvm::Value* last_addr_val = builder.CreateLoad(llvm_last_addr);
 	FAIL_IF(!count_val || !last_addr_val);
-	// c) range_end - last_addr
-	llvm::Value* range_bytes = builder.CreateSub(builder.getInt32(range_end), last_addr_val);
+	// c) range_end - last_addr ['sub nuw': end - start will not be negative]
+	llvm::Value* range_bytes = builder.CreateNUWSub(builder.getInt32(range_end), last_addr_val);
 	FAIL_IF(!range_bytes);
-	// d) (range_end - last_addr) / 4
-	llvm::Value* range_insns = builder.CreateLShr(range_bytes, 2);
+	// d) (range_end - last_addr) / 4 ['lshr exact': 4-byte aligned MIPS code]
+	llvm::Value* range_insns = builder.CreateLShr(range_bytes, 2, "",
+		true /* exact */);
 	FAIL_IF(!range_insns);
 	// e) ((range_end - last_addr) / 4) * count_per_op
 	// count_per_op is read at compilation time, because all writes to it are
