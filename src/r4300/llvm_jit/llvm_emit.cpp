@@ -1013,15 +1013,15 @@ bool llvm_ir_for_insn(llvm::IRBuilder<>& builder, FunctionData& fnData, const n6
 			llvm::BasicBlock* if_true = llvm::BasicBlock::Create(
 				*context, llvm::Twine(nameForAddr(n64_insn->addr)).concat("_True"),
 				builder.GetInsertBlock()->getParent());
-			llvm::BasicBlock* if_false = llvm::BasicBlock::Create(
-				*context, llvm::Twine(nameForAddr(n64_insn->addr)).concat("_False"));
-			FAIL_IF(!if_true || !if_false);
+			FAIL_IF(!if_true);
 			// If true, the uninterrupted run of instructions will end, so
 			// update last_addr, check for interrupts and go to the target.
 			// If false, go to PC + 2, which is guaranteed to be inside this
 			// block or to lead to the "fallthrough block" (see llvm_aux.cpp).
 			// Neither path is more likely.
-			FAIL_IF(!builder.CreateCondBr(cond, if_true, if_false));
+			FAIL_IF(!builder.CreateCondBr(cond,
+				if_true,
+				fnData.getOpcodeBlock(n64_insn->addr + 8)));
 
 			// if_true:
 			builder.SetInsertPoint(if_true);
@@ -1046,13 +1046,6 @@ bool llvm_ir_for_insn(llvm::IRBuilder<>& builder, FunctionData& fnData, const n6
 					n64_insn->runtime + (((int32_t) n64_insn->target - (int32_t) n64_insn->addr) / 4)));
 				FAIL_IF(!fnData.branchToStore(builder));
 			}
-
-			// if_false:
-			builder.GetInsertBlock()->getParent()->getBasicBlockList().push_back(
-				if_false);
-			builder.SetInsertPoint(if_false);
-			//   goto compile-time PC + 8
-			FAIL_IF(!fnData.branchN64(builder, n64_insn->addr + 8));
 			break;
 		}
 
@@ -1126,16 +1119,16 @@ bool llvm_ir_for_insn(llvm::IRBuilder<>& builder, FunctionData& fnData, const n6
 			llvm::BasicBlock* if_true = llvm::BasicBlock::Create(
 				*context, llvm::Twine(nameForAddr(n64_insn->addr)).concat("_True"),
 				builder.GetInsertBlock()->getParent());
-			llvm::BasicBlock* if_false = llvm::BasicBlock::Create(
-				*context, llvm::Twine(nameForAddr(n64_insn->addr)).concat("_False"));
-			FAIL_IF(!if_true || !if_false);
+			FAIL_IF(!if_true);
 			// If true, the uninterrupted run of instructions will end, so
 			// update last_addr, check for interrupts and go to the target.
 			// If false, go to PC + 2, which is guaranteed to be inside this
 			// block or to lead to the "fallthrough block" (see llvm_aux.cpp).
 			// The True path is more likely, as asserted by the MIPS code.
 			// But we don't know how much more likely it is. Let's say 8x.
-			FAIL_IF(!builder.CreateCondBr(cond, if_true, if_false,
+			FAIL_IF(!builder.CreateCondBr(cond,
+				if_true,
+				fnData.getOpcodeBlock(n64_insn->addr + 8),
 				llvm::MDBuilder(*context).createBranchWeights(8, 1)));
 
 			// if_true:
@@ -1164,13 +1157,6 @@ bool llvm_ir_for_insn(llvm::IRBuilder<>& builder, FunctionData& fnData, const n6
 					n64_insn->runtime + (((int32_t) n64_insn->target - (int32_t) n64_insn->addr) / 4)));
 				FAIL_IF(!fnData.branchToStore(builder));
 			}
-
-			// if_false:
-			builder.GetInsertBlock()->getParent()->getBasicBlockList().push_back(
-				if_false);
-			builder.SetInsertPoint(if_false);
-			//   goto compile-time PC + 8
-			FAIL_IF(!fnData.branchN64(builder, n64_insn->addr + 8));
 			break;
 		}
 
